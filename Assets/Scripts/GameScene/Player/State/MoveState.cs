@@ -20,7 +20,7 @@ public class MoveState : BaseState
             player.TransitionTo(PlayerStateId.Fall);
             return;
         }
-
+        
         if (Input.GetButtonDown("Jump") && player.IsGrounded)
         {
             player.TransitionTo(PlayerStateId.Jump);

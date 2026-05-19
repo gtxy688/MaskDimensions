@@ -13,7 +13,8 @@ public enum PlayerStateId
     Idle,
     Move,
     Jump,
-    Fall
+    Fall,
+    MaskSwitch
 }
 
 /// <summary>
@@ -30,7 +31,7 @@ public class PlayerController : MonoBehaviour
 
     public Rigidbody2D RB { get; private set; }
     public Animator Anim { get; private set; }
-
+    
     [Header("移动参数")]
     [SerializeField] private float moveSpeed = 10f;
     public float MoveSpeed => moveSpeed;
@@ -44,8 +45,13 @@ public class PlayerController : MonoBehaviour
     [SerializeField] private Transform groundCheckPoint;
     [SerializeField] private Vector2 groundCheckSize = new Vector2(0.5f, 0.1f);
     [SerializeField] private LayerMask groundLayer;
-
+    
     public bool IsGrounded { get; private set; }
+
+    [Header("维度机制设置")]
+    [Tooltip("把你 Hierarchy 要隐藏的物体拖到这里")]
+    public GameObject maskDimensionLayer;
+    public bool isMaskActive = false; // 记录当前是否戴着面具
 
     private void Awake()
     {
@@ -59,7 +65,8 @@ public class PlayerController : MonoBehaviour
            { PlayerStateId.Idle, new IdleState(this, StateMachine) },
             { PlayerStateId.Move, new MoveState(this, StateMachine) },
             { PlayerStateId.Jump, new JumpState(this, StateMachine) },
-            { PlayerStateId.Fall, new FallState(this, StateMachine) }
+            { PlayerStateId.Fall, new FallState(this, StateMachine) },
+            { PlayerStateId.MaskSwitch, new MaskSwitchState(this, StateMachine) }
         };
     }
 
@@ -76,8 +83,15 @@ public class PlayerController : MonoBehaviour
     private void Update()
     {
         MoveInput = Input.GetAxisRaw("Horizontal");
+
         //一直检测是否接触地面，供状态使用
         CheckGrounded();
+
+        // 🎭 [新增] 监听按键 J，且确保当前不在切换状态中，防止狂按
+        if (Input.GetKeyDown(KeyCode.J) && !(StateMachine.CurrentState is MaskSwitchState))
+        {
+            TransitionTo(PlayerStateId.MaskSwitch);
+        }
 
         StateMachine.CurrentState?.LogicUpdate();
 
@@ -125,12 +139,27 @@ public class PlayerController : MonoBehaviour
         }
     }
 
+    //绘制一个红色的框，供调试
     private void OnDrawGizmosSelected()
     {
         if (groundCheckPoint != null)
         {
             Gizmos.color = Color.red;
             Gizmos.DrawWireCube(groundCheckPoint.position, groundCheckSize);
+        }
+    }
+    // 🎭 [新增] 供 MaskSwitchState 调用的终极维度开关
+    public void ToggleDimension()
+    {
+        isMaskActive = !isMaskActive;
+        if (maskDimensionLayer != null)
+        {
+            maskDimensionLayer.SetActive(!isMaskActive);
+            Debug.Log($"维度切换完毕！当前面具状态：{isMaskActive}");
+        }
+        else
+        {
+            Debug.LogWarning("忘记在 Inspector 里绑定 Mask Layer 了！");
         }
     }
 }
