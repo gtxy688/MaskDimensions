@@ -1,4 +1,5 @@
-﻿using System.Collections;
+﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using Unity.IO.LowLevel.Unsafe;
 using UnityEditor;
@@ -48,9 +49,10 @@ public class PlayerController : MonoBehaviour
     
     public bool IsGrounded { get; private set; }
 
-    [Header("维度机制设置")]
-    [Tooltip("把你 Hierarchy 要隐藏的物体拖到这里")]
-    public GameObject maskDimensionLayer;
+
+    [Header("维度图层设置")]
+    public GameObject objectsToAppear;    // 戴面具后【出现】的物体 (比如隐藏桥梁)
+    public GameObject objectsToDisappear; // 戴面具后【消失】的物体 (比如挡路的石门)
     public bool isMaskActive = false; // 记录当前是否戴着面具
 
     private void Awake()
@@ -152,14 +154,26 @@ public class PlayerController : MonoBehaviour
     public void ToggleDimension()
     {
         isMaskActive = !isMaskActive;
-        if (maskDimensionLayer != null)
+
+        // 隐藏的桥梁出现
+        if (objectsToAppear != null) objectsToAppear.SetActive(isMaskActive);
+
+        // 挡路的石门消失
+        if (objectsToDisappear != null) objectsToDisappear.SetActive(!isMaskActive);
+
+        Debug.Log($"维度切换完毕！当前面具状态：{isMaskActive}");
+    }
+
+    // 当角色和任何物体发生物理碰撞时，Unity 会自动调用这个方法
+    private void OnCollisionEnter2D(Collision2D collision)
+    {
+        // 检查撞到的物体是不是贴着 "Trap" 标签
+        if (collision.gameObject.CompareTag("Trap"))
         {
-            maskDimensionLayer.SetActive(!isMaskActive);
-            Debug.Log($"维度切换完毕！当前面具状态：{isMaskActive}");
-        }
-        else
-        {
-            Debug.LogWarning("忘记在 Inspector 里绑定 Mask Layer 了！");
+            Debug.Log("啊！踩到地刺了！扣血或重新开始！");
+
+            // 这里可以写你的扣血逻辑，或者直接让角色回到出生点
+            // Die(); 
         }
     }
 }
