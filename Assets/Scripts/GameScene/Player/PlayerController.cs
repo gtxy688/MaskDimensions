@@ -51,9 +51,17 @@ public class PlayerController : MonoBehaviour
 
 
     [Header("维度图层设置")]
-    public GameObject objectsToAppear;    // 戴面具后【出现】的物体 (比如隐藏桥梁)
-    public GameObject objectsToDisappear; // 戴面具后【消失】的物体 (比如挡路的石门)
+    // 【重构1：移除强耦合】使用可配置的图层名来控制物理忽略
+    [Tooltip("里世界（Mask）图层名称，确保在 Editor 的 Layers 中存在同名项")]
+    [SerializeField] private string maskLayerName = "NewDimension";
+    [Tooltip("旧世界（Old）图层名称，确保在 Editor 的 Layers 中存在同名项")]
+    [SerializeField] private string oldWorldLayerName = "OldDimension";
+
     public bool isMaskActive = false; // 记录当前是否戴着面具
+
+    // 【重构2：观察者模式频道】定义静态事件，任何脚本都能监听这个“面具状态广播”
+    public static event Action<bool> OnMaskStateChanged;
+    
 
     private void Awake()
     {
@@ -141,6 +149,15 @@ public class PlayerController : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// 对外暴露的刷新地面检测接口。
+    /// 在变更图层或其他可能影响碰撞查询的操作后可调用以立即更新 IsGrounded。
+    /// </summary>
+    public void RefreshGrounded()
+    {
+        CheckGrounded();
+    }
+
     //绘制一个红色的框，供调试
     private void OnDrawGizmosSelected()
     {
@@ -150,18 +167,44 @@ public class PlayerController : MonoBehaviour
             Gizmos.DrawWireCube(groundCheckPoint.position, groundCheckSize);
         }
     }
-    // 🎭 [新增] 供 MaskSwitchState 调用的终极维度开关
-    public void ToggleDimension()
+
+    /// <summary>
+    /// 切换面具图层状态。
+    /// 这个方法会被 MaskSwitchState 状态调用。
+    /// </summary>
+    public void ToggleMaskDimension()
     {
         isMaskActive = !isMaskActive;
 
-        // 隐藏的桥梁出现
-        if (objectsToAppear != null) objectsToAppear.SetActive(isMaskActive);
+        // 动态忽略图层碰撞，解决频繁 SetActive 带来的卡顿
+        // 使用可配置的里世界与旧世界 Layer 名称来实现：
+        // - 戴面具时(player与MaskLayer)允许碰撞，忽略与 OldWorld 的碰撞
+        // - 未戴面具时相反
+        int playerLayer = LayerMask.NameToLayer("Player");
+        int maskLayer = LayerMask.NameToLayer(maskLayerName);
+        int oldLayer = LayerMask.NameToLayer(oldWorldLayerName);
 
-        // 挡路的石门消失
-        if (objectsToDisappear != null) objectsToDisappear.SetActive(!isMaskActive);
+        if (playerLayer == -1)
+        {
+            Debug.LogWarning("[PlayerController] 未找到 Player 图层，请在 Inspector 的 Layers 中添加名为 'Player' 的层。");
+        }
 
-        Debug.Log($"维度切换完毕！当前面具状态：{isMaskActive}");
+        if (maskLayer == -1 || oldLayer == -1)
+        {
+            Debug.LogWarning($"[PlayerController] 未找到指定的维度图层（Mask: {maskLayerName}, Old: {oldWorldLayerName}），请检查 Layers 设置。");
+        }
+
+        // 当戴面具时：允许与 MaskLayer 碰撞，忽略与 OldLayer 碰撞
+        if (playerLayer != -1 && maskLayer != -1)
+            Physics2D.IgnoreLayerCollision(playerLayer, maskLayer, !isMaskActive);
+
+        if (playerLayer != -1 && oldLayer != -1)
+            Physics2D.IgnoreLayerCollision(playerLayer, oldLayer, isMaskActive);
+
+        // 触发广播，所有场景里的面具砖块听到后自己决定显示/隐藏
+        OnMaskStateChanged?.Invoke(isMaskActive);
+
+        Debug.Log($"面具状态切换为：{isMaskActive} - 已同步物理引擎并广播事件！");
     }
 
     // 当角色和任何物体发生物理碰撞时，Unity 会自动调用这个方法

@@ -3139,7 +3139,7 @@ Camera:
   m_Depth: -1
   m_CullingMask:
     serializedVersion: 2
-    m_Bits: 215
+    m_Bits: 991
   m_RenderingPath: -1
   m_TargetTexture: {fileID: 0}
   m_TargetDisplay: 0
@@ -3160,7 +3160,7 @@ Transform:
   m_GameObject: {fileID: 1155250574}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 2.9650412, y: 3.8653, z: -10}
+  m_LocalPosition: {x: 2.9650698, y: 3.8400002, z: -10}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -3430,7 +3430,8 @@ GameObject:
   - component: {fileID: 1936590170}
   - component: {fileID: 1936590169}
   - component: {fileID: 1936590168}
-  m_Layer: 0
+  - component: {fileID: 1936590173}
+  m_Layer: 3
   m_Name: Traps
   m_TagString: Trap
   m_Icon: {fileID: 0}
@@ -3920,6 +3921,20 @@ Tilemap:
     e31: 0
     e32: 0
     e33: 1
+--- !u!114 &1936590173
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1936590166}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9a571c0db7557764db0e07dad2e2f97b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  targetRenderer: {fileID: 1936590171}
+  showWhenMaskActive: 0
 --- !u!1001 &2616264415792341520
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -3968,6 +3983,10 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 1267691119172708070, guid: 8ca692273248ca6408b23a55823b2060, type: 3}
+      propertyPath: m_Layer
+      value: 8
+      objectReference: {fileID: 0}
     - target: {fileID: 4714318956879940107, guid: 8ca692273248ca6408b23a55823b2060, type: 3}
       propertyPath: maskDimensionLayer
       value: 
@@ -3979,6 +3998,10 @@ PrefabInstance:
     - target: {fileID: 7188836295803003887, guid: 8ca692273248ca6408b23a55823b2060, type: 3}
       propertyPath: m_Name
       value: Player
+      objectReference: {fileID: 0}
+    - target: {fileID: 7188836295803003887, guid: 8ca692273248ca6408b23a55823b2060, type: 3}
+      propertyPath: m_Layer
+      value: 8
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []

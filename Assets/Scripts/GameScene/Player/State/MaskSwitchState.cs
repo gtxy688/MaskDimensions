@@ -1,59 +1,68 @@
 using UnityEngine;
 
 /// <summary>
-/// 面具维度切换状态（0.5秒硬直）
+/// 面具维度切换状态（0.5秒硬直，变身期间不可做其他动作）
 /// </summary>
 public class MaskSwitchState : BaseState
 {
     private float switchTimer;
-    private float switchDuration = 0.5f; // 0.5秒变身硬直
+    private float switchDuration = 0.5f; // 0.5秒变身硬直时间
 
-    public MaskSwitchState(PlayerController player, PlayerStateMachine stateMachine) : base(player, stateMachine)
+    public MaskSwitchState(PlayerController player, PlayerStateMachine stateMachine)
+        : base(player, stateMachine)
     {
     }
 
     public override void Enter()
     {
         base.Enter();
-        switchTimer = switchDuration;
+        switchTimer = 0f;
 
-        // 1. 瞬间停住角色 (X和Y速度清零)
-        player.RB.velocity = Vector2.zero;
+        // 1. 调用 Controller 中的核心方法，触发物理忽略和视觉广播
+        //    并立即刷新地面检测结果（切换图层后碰撞检测结果可能变化）
+        player.ToggleMaskDimension();
+        player.RefreshGrounded();
 
-        //// 可选：为了保证在空中切换时绝对悬停，不受重力影响掉落
-        //player.RB.gravityScale = 0f;
+        // 2. 仅在地面时停止玩家水平移动（空中变身不应瞬间清除横向动量）
+        if (player.IsGrounded)
+        {
+            player.RB.velocity = new Vector2(0f, player.RB.velocity.y);
+        }
 
-        Debug.Log("进入面具切换状态，角色硬直...");
+        // 3. (可选) 如果有变身动画，在这里播放
+        if (player.Anim != null)
+        {
+            player.Anim.Play("MaskSwitch");
+        }
     }
 
     public override void LogicUpdate()
     {
         base.LogicUpdate();
 
-        // 2. 开始 0.5 秒倒计时
-        switchTimer -= Time.deltaTime;
+        switchTimer += Time.deltaTime;
 
-        if (switchTimer <= 0f)
+        // 硬直时间结束，退出变身状态并选择合适后续状态
+        if (switchTimer >= switchDuration)
         {
-            // 3. 时间到！触发维度的物理层切换
-            player.ToggleDimension();
+            // 以最新的地面检测结果为准（可能在变身期间发生变化）
+            player.RefreshGrounded();
 
-            // 4. 完美回退：看脚下有没有地，决定回 Idle 还是 Fall
             if (player.IsGrounded)
             {
-                player.TransitionTo(PlayerStateId.Idle);
+                if (Mathf.Abs(player.MoveInput) > 0.1f)
+                {
+                    player.TransitionTo(PlayerStateId.Move);
+                }
+                else
+                {
+                    player.TransitionTo(PlayerStateId.Idle);
+                }
             }
             else
             {
                 player.TransitionTo(PlayerStateId.Fall);
             }
         }
-    }
-
-    public override void Exit()
-    {
-        base.Exit();
-        //// 恢复重力
-        //player.RB.gravityScale = 1f;
     }
 }
