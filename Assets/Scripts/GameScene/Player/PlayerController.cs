@@ -51,20 +51,35 @@ public class PlayerController : MonoBehaviour
 
 
     [Header("维度图层设置")]
-    // 【重构1：移除强耦合】使用可配置的图层名来控制物理忽略
-    [Tooltip("里世界（Mask）图层名称，确保在 Editor 的 Layers 中存在同名项")]
-    [SerializeField] private string maskLayerName = "NewDimension";
-    [Tooltip("旧世界（Old）图层名称，确保在 Editor 的 Layers 中存在同名项")]
-    [SerializeField] private string oldWorldLayerName = "OldDimension";
+    //使用可配置的图层名来控制物理忽略
+    [Tooltip("新世界（New）图层名称")]
+    [SerializeField] 
+    private string maskLayerName = "NewDimension";
+    [Tooltip("旧世界（Old）图层名称")]
+    [SerializeField] 
+    private string oldWorldLayerName = "OldDimension";
 
-    public bool isMaskActive = false; // 记录当前是否戴着面具
+    // 记录玩家当前是否戴着面具
+    public bool isMaskActive = false;
 
-    // 【重构2：观察者模式频道】定义静态事件，任何脚本都能监听这个“面具状态广播”
+    // 在 PlayerController 中添加一个公开的静态只读属性,供外界访问玩家是戴着面具
+    public static bool IsMaskActiveGlobally { get; private set; }
+
+    //定义静态事件，任何脚本都能监听这个“面具状态广播”
     public static event Action<bool> OnMaskStateChanged;
-    
+
+    // 缓存图层 ID，避免每次切换状态都调用 LayerMask.NameToLayer（性能优化）
+    int playerLayer ;
+    int maskLayer ;
+    int oldLayer ;
 
     private void Awake()
     {
+        // 提前缓存 Layer ID
+        playerLayer = LayerMask.NameToLayer("Player");
+        maskLayer = LayerMask.NameToLayer(maskLayerName);
+        oldLayer = LayerMask.NameToLayer(oldWorldLayerName);
+
         StateMachine = new PlayerStateMachine();
         RB = GetComponent<Rigidbody2D>();
         Anim = GetComponent<Animator>();
@@ -80,6 +95,18 @@ public class PlayerController : MonoBehaviour
         };
     }
 
+    // 在 PlayerController 中添加一个公开的属性，供状态类查询当前是否允许切换面具
+    public bool CanSwitchMask
+    {
+        get
+        {
+            // 只有在这些状态下允许切换面具（白名单机制比黑名单更安全）
+            return StateMachine.CurrentState is IdleState ||
+                   StateMachine.CurrentState is MoveState ||
+                   StateMachine.CurrentState is JumpState ||
+                   StateMachine.CurrentState is FallState;
+        }
+    }
     private void Start()
     {
         //直接从字典里把 Idle 取出来，喂给状态机的“初始化”接口
@@ -97,8 +124,8 @@ public class PlayerController : MonoBehaviour
         //一直检测是否接触地面，供状态使用
         CheckGrounded();
 
-        // 🎭 [新增] 监听按键 J，且确保当前不在切换状态中，防止狂按
-        if (Input.GetKeyDown(KeyCode.J) && !(StateMachine.CurrentState is MaskSwitchState))
+        // 监听按键 J，且确保当前不在切换状态中，防止狂按
+        if (Input.GetKeyDown(KeyCode.J) && CanSwitchMask)
         {
             TransitionTo(PlayerStateId.MaskSwitch);
         }
@@ -175,24 +202,11 @@ public class PlayerController : MonoBehaviour
     public void ToggleMaskDimension()
     {
         isMaskActive = !isMaskActive;
+        IsMaskActiveGlobally = isMaskActive; // 同步给静态变量
 
         // 动态忽略图层碰撞，解决频繁 SetActive 带来的卡顿
-        // 使用可配置的里世界与旧世界 Layer 名称来实现：
-        // - 戴面具时(player与MaskLayer)允许碰撞，忽略与 OldWorld 的碰撞
-        // - 未戴面具时相反
-        int playerLayer = LayerMask.NameToLayer("Player");
-        int maskLayer = LayerMask.NameToLayer(maskLayerName);
-        int oldLayer = LayerMask.NameToLayer(oldWorldLayerName);
-
-        if (playerLayer == -1)
-        {
-            Debug.LogWarning("[PlayerController] 未找到 Player 图层，请在 Inspector 的 Layers 中添加名为 'Player' 的层。");
-        }
-
-        if (maskLayer == -1 || oldLayer == -1)
-        {
-            Debug.LogWarning($"[PlayerController] 未找到指定的维度图层（Mask: {maskLayerName}, Old: {oldWorldLayerName}），请检查 Layers 设置。");
-        }
+        // 戴面具时(player与MaskLayer)允许碰撞，忽略与 OldWorld 的碰撞
+        // 未戴面具时相反
 
         // 当戴面具时：允许与 MaskLayer 碰撞，忽略与 OldLayer 碰撞
         if (playerLayer != -1 && maskLayer != -1)

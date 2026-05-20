@@ -22,17 +22,11 @@ public class MaskObject : MonoBehaviour
         }
 
         // 根据当前玩家的面具状态初始化可见性：
-        // - 如果能找到 PlayerController，则以 player.isMaskActive 决定显隐
+        // - PlayerController.isMaskActiveGlobally 决定显隐
         // - 否则做保守默认：旧世界物体（showWhenMaskActive==false）可见，新世界物体不可见
-        var player = FindObjectOfType<PlayerController>();
-        if (player != null)
-        {
-            targetRenderer.enabled = (player.isMaskActive == showWhenMaskActive);
-        }
-        else
-        {
-            targetRenderer.enabled = !showWhenMaskActive;
-        }
+        // 直接读取静态变量，时间复杂度 O(1)，告别 FindObjectOfType
+        targetRenderer.enabled = (PlayerController.IsMaskActiveGlobally == showWhenMaskActive);
+    
     }
 
     private void OnEnable()
