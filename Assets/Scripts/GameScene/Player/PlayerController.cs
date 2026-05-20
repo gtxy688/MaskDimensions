@@ -32,24 +32,20 @@ public class PlayerController : MonoBehaviour
 
     public Rigidbody2D RB { get; private set; }
     public Animator Anim { get; private set; }
-    
-    [Header("移动参数")]
-    [SerializeField] private float moveSpeed = 5f;
-    public float MoveSpeed => moveSpeed;
 
+    [Header("换装与特效")]
+    [SerializeField] private GameObject faceMaskObject; // 挂在脸上的面具子物体
+    [SerializeField] private ParticleSystem switchVFXPrefab; // 切换时的粒子特效预制体
+    [Header("配置文件")]
+    [SerializeField] private PlayerConfigSO config;
+
+    public float MoveSpeed => config.moveSpeed;
+    public float JumpForce => config.jumpForce;
     public float MoveInput { get; private set; }
-
-    [Header("物理与碰撞参数")]
-    [SerializeField] private float jumpForce = 5f;
-    public float JumpForce => jumpForce;
 
     [SerializeField] private Transform groundCheckPoint;
     [SerializeField] private Vector2 groundCheckSize = new Vector2(0.5f, 0.1f);
     [SerializeField] private LayerMask groundLayer;
-
-    [Header("跳跃手感优化")]
-    [SerializeField] private float coyoteTime = 0.15f;    // 土狼时间（离开平台后多久内还能跳）
-    [SerializeField] private float jumpBufferTime = 0.15f;// 跳跃缓冲（落地前多久按下跳跃算有效）
 
     public float CoyoteTimeCounter { get; private set; }
     public float JumpBufferCounter { get; private set; }
@@ -69,13 +65,17 @@ public class PlayerController : MonoBehaviour
     int newLayer;
     int oldLayer;
    
-    public float maxSanity = 100f;
     public float currentSanity = 100f;
-    public float activeSanityCostRate = 20f; // 处于里世界时每秒掉多少理智
-    public float sanityRecoverRate = 15f;    // 在表世界时每秒回多少理智
 
     public bool isPreviewing = false; // 是否处于战术定身(透视)状态
-    
+
+    [Header("死亡与重生")]
+    [SerializeField] private GameObject deathVFXPrefab;   // disappear 预制体
+    [SerializeField] private GameObject respawnVFXPrefab; // appear 预制体
+    [SerializeField] private Transform respawnPoint;      // 重生点位置（可以是一个空的 GameObject）
+
+    public bool isDead = false;
+
     // 事件广播
     public static event Action<bool> OnMaskStateChanged;
     public static event Action<bool> OnMaskPreviewChanged;
@@ -126,6 +126,7 @@ public class PlayerController : MonoBehaviour
 
     private void Update()
     {
+        if (isDead) return;
         MoveInput = Input.GetAxisRaw("Horizontal");
 
         //如果处于“战术定身”状态，拦截玩家的所有移动和跳跃输入
@@ -149,13 +150,13 @@ public class PlayerController : MonoBehaviour
 
     }
 
-    // 新增：维护两个计时器
+    // 新增：维护两个计时器,优化跳跃体验
     private void UpdateJumpTimers()
     {
         // 土狼时间计时器：在地面时充满，离开地面后开始倒计时
         if (IsGrounded)
         {
-            CoyoteTimeCounter = coyoteTime;
+            CoyoteTimeCounter = config.coyoteTime;
         }
         else
         {
@@ -165,7 +166,7 @@ public class PlayerController : MonoBehaviour
         // 跳跃缓冲计时器：按下跳跃键时充满，否则倒计时
         if (Input.GetButtonDown("Jump"))
         {
-            JumpBufferCounter = jumpBufferTime;
+            JumpBufferCounter = config.jumpBufferTime;
         }
         else
         {
@@ -278,7 +279,7 @@ public class PlayerController : MonoBehaviour
         // 理智流逝机制
         if (isMaskActive)
         {
-            currentSanity -= activeSanityCostRate * Time.deltaTime;
+            currentSanity -= config.activeSanityCostRate * Time.deltaTime;
 
             // 当理智耗尽，强制弹回表世界
             if (currentSanity <= 0)
@@ -291,10 +292,10 @@ public class PlayerController : MonoBehaviour
         else if (!isPreviewing)
         {
             // 在表世界安全时，恢复理智
-            if (currentSanity < maxSanity)
+            if (currentSanity < config.maxSanity)
             {
-                currentSanity += sanityRecoverRate * Time.deltaTime;
-                currentSanity = Mathf.Clamp(currentSanity, 0, maxSanity);
+                currentSanity += config.sanityRecoverRate * Time.deltaTime;
+                currentSanity = Mathf.Clamp(currentSanity, 0, config.maxSanity);
             }
         }
     }
@@ -313,21 +314,32 @@ public class PlayerController : MonoBehaviour
     /// </summary>
     private IEnumerator ExecuteMaskSwitchWithHitlag()
     {
-        // 1. 瞬间画面定格营造力量感
+        // 1. 瞬间实例化并播放粒子特效 (因为是 Unscaled Time，它会继续运动)
+        if (switchVFXPrefab != null)
+        {
+            Instantiate(switchVFXPrefab, transform.position, Quaternion.identity);
+        }
+
+        // 2. 瞬间画面定格营造力量感
         Time.timeScale = 0f;
 
-        // 2. 执行底层物理和事件切换
+        // 3. 执行底层物理和事件切换
         isMaskActive = !isMaskActive;
         IsMaskActiveGlobally = isMaskActive;
         UpdateLayerCollisions();
         OnMaskStateChanged?.Invoke(isMaskActive);
 
+        // 4. 【新增】：控制脸上纸娃娃面具的显隐
+        if (faceMaskObject != null)
+        {
+            faceMaskObject.SetActive(isMaskActive);
+        }
         // TODO: 这里可以加入相机震动、播放清脆的“碎玻璃”音效等
 
-        // 停顿 0.15 秒（不受 Time.timeScale 影响的真实时间）
+        // 5.停顿 0.15 秒（不受 Time.timeScale 影响的真实时间）
         yield return new WaitForSecondsRealtime(0.15f);
 
-        // 3. 恢复时间，动量完美继承
+        // 6. 恢复时间，动量完美继承
         Time.timeScale = 1f;
         Time.fixedDeltaTime = 0.02f;
     }
@@ -352,11 +364,57 @@ public class PlayerController : MonoBehaviour
         // 检查撞到的物体是不是贴着 "Trap" 标签
         if (collision.gameObject.CompareTag("Trap"))
         {
-            Debug.Log("啊！踩到地刺了！扣血或重新开始！");
-
-            // 这里可以写你的扣血逻辑，或者直接让角色回到出生点
-            // Die(); 
+            StartCoroutine(DieAndRespawnRoutine());
         }
+    }
+
+    private IEnumerator DieAndRespawnRoutine()
+    {
+        isDead = true;
+
+        // 1. 禁用玩家的物理、控制和视觉
+        RB.velocity = Vector2.zero;
+        RB.simulated = false; // 冻结刚体
+        Anim.enabled = false; // 停止人物原画动画
+        GetComponent<SpriteRenderer>().enabled = false; // 隐藏主角本体
+        if (faceMaskObject != null) faceMaskObject.SetActive(false); // 隐藏纸娃娃面具
+
+        // 2. 在当前位置生成死亡消散特效 (disappear)
+        if (deathVFXPrefab != null)
+        {
+            Instantiate(deathVFXPrefab, transform.position, Quaternion.identity);
+        }
+
+        // 3. 等待消散动画播完 (比如 0.5 秒)
+        yield return new WaitForSeconds(0.5f);
+
+        // 4. 将玩家瞬间移动到重生点
+        transform.position = respawnPoint.position;
+
+        // 5. 在重生点生成重生凝聚特效 (appear)
+        if (respawnVFXPrefab != null)
+        {
+            Instantiate(respawnVFXPrefab, transform.position, Quaternion.identity);
+        }
+
+        // 6. 稍微等待凝聚特效快要播完时（比如 0.4 秒），重新显现实体
+        yield return new WaitForSeconds(0.4f);
+
+        RB.simulated = true;
+        Anim.enabled = true;
+        GetComponent<SpriteRenderer>().enabled = true;
+
+        // 重置理智值等状态
+        currentSanity = config.maxSanity;
+        isMaskActive = false;
+        IsMaskActiveGlobally = false;
+        UpdateLayerCollisions();
+        OnMaskStateChanged?.Invoke(false);
+
+        isDead = false;
+
+        // 强制切回 Idle 状态
+        TransitionTo(PlayerStateId.Idle);
     }
 }
 
