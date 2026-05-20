@@ -16,6 +16,12 @@ public class FallState : BaseState
 
     public override void LogicUpdate()
     {
+        if (player.JumpBufferCounter > 0f && player.CoyoteTimeCounter > 0f)
+        {
+            player.ConsumeJump();
+            player.TransitionTo(PlayerStateId.Jump);
+            return;
+        }
         // 落地检测：触发物理阻挡且地面检测盒返回 True
         if (player.IsGrounded)
         {

@@ -20,9 +20,10 @@ public class MoveState : BaseState
             player.TransitionTo(PlayerStateId.Fall);
             return;
         }
-        
-        if (Input.GetButtonDown("Jump") && player.IsGrounded)
+        // 判定跳跃
+        if (player.JumpBufferCounter > 0f && player.CoyoteTimeCounter > 0f)
         {
+            player.ConsumeJump(); // 消耗掉跳跃指令
             player.TransitionTo(PlayerStateId.Jump);
             return;
         }

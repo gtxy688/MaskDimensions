@@ -9,7 +9,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 2714760583637469316}
-  m_Layer: 0
+  m_Layer: 8
   m_Name: GroundCheckPoint
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -45,7 +45,7 @@ GameObject:
   - component: {fileID: 4714318956879940107}
   - component: {fileID: 8906830532155080056}
   - component: {fileID: 8885433543740985269}
-  m_Layer: 0
+  m_Layer: 8
   m_Name: Player
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -153,15 +153,21 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 09fb5ac564fe0954980d13a1db6eebce, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  moveSpeed: 10
-  jumpForce: 10
+  moveSpeed: 5
+  jumpForce: 5
   groundCheckPoint: {fileID: 2714760583637469316}
   groundCheckSize: {x: 0.96, y: 0.13}
   groundLayer:
     serializedVersion: 2
     m_Bits: 128
-  maskDimensionLayer: {fileID: 0}
   isMaskActive: 0
+  maskLayerName: NewDimension
+  oldWorldLayerName: OldDimension
+  maxSanity: 100
+  currentSanity: 100
+  activeSanityCostRate: 20
+  sanityRecoverRate: 15
+  isPreviewing: 0
 --- !u!50 &8906830532155080056
 Rigidbody2D:
   serializedVersion: 4

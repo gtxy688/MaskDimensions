@@ -1,60 +1,80 @@
 using UnityEngine;
+using UnityEngine.Tilemaps;
 
 /// <summary>
-/// 里世界独占物体
-/// 作为监听者，监听玩家面具状态的切换事件。
+/// 里世界独占物体（Tilemap 版本）
+/// 仅使用 Tilemap.color 控制透视半透明效果，使用 TilemapRenderer.enabled 控制显隐。
 /// </summary>
-[RequireComponent(typeof(Renderer))]
+[RequireComponent(typeof(Tilemap))]
 public class MaskObject : MonoBehaviour
 {
-    [Tooltip("可选：手动指定 Renderer，默认使用本对象上的 Renderer（例如 TilemapRenderer）")]
-    [SerializeField] private Renderer targetRenderer;
-    [Header("显示设置")]
-    [Tooltip("如果为 true，则在玩家戴上面具时显示；为 false 则在未戴面具时显示（用于旧世界物体）")]
+    [Tooltip("勾选代表它是里世界物体(戴面具显示)；不勾选代表它是表世界物体(戴面具隐藏)")]
     [SerializeField] private bool showWhenMaskActive = true;
+
+    [SerializeField] private Tilemap tilemap;
+    [SerializeField] private TilemapRenderer tilemapRenderer;
+    [SerializeField] private Color originalColor = Color.white;
+    [SerializeField] private bool hasOriginalColor = false;
 
     private void Awake()
     {
-        // 如果 Inspector 没手动指定 Renderer，尝试从当前对象获取一个
-        if (targetRenderer == null)
-        {
-            targetRenderer = GetComponent<Renderer>();
-        }
+        tilemap = GetComponent<Tilemap>();
+        tilemapRenderer = GetComponent<TilemapRenderer>();
 
-        // 根据当前玩家的面具状态初始化可见性：
-        // - PlayerController.isMaskActiveGlobally 决定显隐
-        // - 否则做保守默认：旧世界物体（showWhenMaskActive==false）可见，新世界物体不可见
-        // 直接读取静态变量，时间复杂度 O(1)，告别 FindObjectOfType
-        targetRenderer.enabled = (PlayerController.IsMaskActiveGlobally == showWhenMaskActive);
-    
+        if (tilemap != null)
+        {
+            originalColor = tilemap.color;
+            hasOriginalColor = true;
+        }
+    }
+
+    private void Start()
+    {
+        // 游戏开始时，根据全局静态变量初始化显隐
+        if (tilemapRenderer != null)
+            tilemapRenderer.enabled = (PlayerController.IsMaskActiveGlobally == showWhenMaskActive);
     }
 
     private void OnEnable()
     {
-        // 脚本启用时，监听大喇叭频道的广播
+        // 脚本启用时，监听广播
         PlayerController.OnMaskStateChanged += HandleMaskStateChanged;
+        PlayerController.OnMaskPreviewChanged += HandleMaskPreviewChanged;
     }
 
     private void OnDisable()
     {
-        // 物体销毁或禁用时，取消监听，防止内存泄漏！
         PlayerController.OnMaskStateChanged -= HandleMaskStateChanged;
+        PlayerController.OnMaskPreviewChanged -= HandleMaskPreviewChanged;
     }
 
-    /// <summary>
-    /// 收到玩家“面具状态改变”的广播后执行
-    /// </summary>
     private void HandleMaskStateChanged(bool isMaskActive)
     {
-        // 这里只控制渲染的显示和隐藏，绝不使用 gameObject.SetActive
-        // 物理碰撞层面的开关，已经由 PlayerController 统一指挥 Box2D 物理引擎完成了
-        // 支持两类物体：showWhenMaskActive==true 的物体在戴面具时显示；为 false 的物体在未戴面具时显示
-        if (targetRenderer != null)
-        {
-            targetRenderer.enabled = (isMaskActive == showWhenMaskActive);
-        }
+        // 使用 TilemapRenderer 控制显隐
+        if (tilemapRenderer != null)
+            tilemapRenderer.enabled = (isMaskActive == showWhenMaskActive);
+    }
 
-        // TODO: 以后如果要加高级效果，可以直接加在这里，比如：
-        // if(isMaskActive) 播放出现粒子特效() / 播放渐显动画();
+    private void HandleMaskPreviewChanged(bool isPreviewing)
+    {
+        // 仅对里世界物体在透视时显示半透明
+        if (!showWhenMaskActive) return;
+
+        if (isPreviewing && !PlayerController.IsMaskActiveGlobally)
+        {
+            if (tilemapRenderer != null) tilemapRenderer.enabled = true;
+            if (hasOriginalColor && tilemap != null)
+            {
+                Color ghost = originalColor;
+                ghost.a = 0.4f;
+                tilemap.color = ghost;
+            }
+        }
+        else if (!isPreviewing && !PlayerController.IsMaskActiveGlobally)
+        {
+            // 恢复并隐藏
+            if (hasOriginalColor && tilemap != null) tilemap.color = originalColor;
+            if (tilemapRenderer != null) tilemapRenderer.enabled = false;
+        }
     }
 }

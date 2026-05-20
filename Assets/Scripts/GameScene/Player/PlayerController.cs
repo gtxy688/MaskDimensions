@@ -34,30 +34,26 @@ public class PlayerController : MonoBehaviour
     public Animator Anim { get; private set; }
     
     [Header("移动参数")]
-    [SerializeField] private float moveSpeed = 10f;
+    [SerializeField] private float moveSpeed = 5f;
     public float MoveSpeed => moveSpeed;
 
     public float MoveInput { get; private set; }
 
     [Header("物理与碰撞参数")]
-    [SerializeField] private float jumpForce = 10f;
+    [SerializeField] private float jumpForce = 5f;
     public float JumpForce => jumpForce;
 
     [SerializeField] private Transform groundCheckPoint;
     [SerializeField] private Vector2 groundCheckSize = new Vector2(0.5f, 0.1f);
     [SerializeField] private LayerMask groundLayer;
-    
+
+    [Header("跳跃手感优化")]
+    [SerializeField] private float coyoteTime = 0.15f;    // 土狼时间（离开平台后多久内还能跳）
+    [SerializeField] private float jumpBufferTime = 0.15f;// 跳跃缓冲（落地前多久按下跳跃算有效）
+
+    public float CoyoteTimeCounter { get; private set; }
+    public float JumpBufferCounter { get; private set; }
     public bool IsGrounded { get; private set; }
-
-
-    [Header("维度图层设置")]
-    //使用可配置的图层名来控制物理忽略
-    [Tooltip("新世界（New）图层名称")]
-    [SerializeField] 
-    private string maskLayerName = "NewDimension";
-    [Tooltip("旧世界（Old）图层名称")]
-    [SerializeField] 
-    private string oldWorldLayerName = "OldDimension";
 
     // 记录玩家当前是否戴着面具
     public bool isMaskActive = false;
@@ -65,21 +61,33 @@ public class PlayerController : MonoBehaviour
     // 在 PlayerController 中添加一个公开的静态只读属性,供外界访问玩家是戴着面具
     public static bool IsMaskActiveGlobally { get; private set; }
 
-    //定义静态事件，任何脚本都能监听这个“面具状态广播”
-    public static event Action<bool> OnMaskStateChanged;
+    [Header("面具与理智系统")]
+    //使用可配置的图层名来控制物理忽略
+    [SerializeField] private string maskLayerName = "NewDimension";
+    [SerializeField] private string oldWorldLayerName = "OldDimension";
+    int playerLayer;
+    int newLayer;
+    int oldLayer;
+   
+    public float maxSanity = 100f;
+    public float currentSanity = 100f;
+    public float activeSanityCostRate = 20f; // 处于里世界时每秒掉多少理智
+    public float sanityRecoverRate = 15f;    // 在表世界时每秒回多少理智
 
-    // 缓存图层 ID，避免每次切换状态都调用 LayerMask.NameToLayer（性能优化）
-    int playerLayer ;
-    int maskLayer ;
-    int oldLayer ;
+    public bool isPreviewing = false; // 是否处于战术定身(透视)状态
+    
+    // 事件广播
+    public static event Action<bool> OnMaskStateChanged;
+    public static event Action<bool> OnMaskPreviewChanged;
 
     private void Awake()
     {
         // 提前缓存 Layer ID
         playerLayer = LayerMask.NameToLayer("Player");
-        maskLayer = LayerMask.NameToLayer(maskLayerName);
+        newLayer = LayerMask.NameToLayer(maskLayerName);
         oldLayer = LayerMask.NameToLayer(oldWorldLayerName);
-
+        IsMaskActiveGlobally = isMaskActive;
+        UpdateLayerCollisions();  // 添加这一行，根据初始面具状态设置碰撞忽略
         StateMachine = new PlayerStateMachine();
         RB = GetComponent<Rigidbody2D>();
         Anim = GetComponent<Animator>();
@@ -91,7 +99,6 @@ public class PlayerController : MonoBehaviour
             { PlayerStateId.Move, new MoveState(this, StateMachine) },
             { PlayerStateId.Jump, new JumpState(this, StateMachine) },
             { PlayerStateId.Fall, new FallState(this, StateMachine) },
-            { PlayerStateId.MaskSwitch, new MaskSwitchState(this, StateMachine) }
         };
     }
 
@@ -121,17 +128,56 @@ public class PlayerController : MonoBehaviour
     {
         MoveInput = Input.GetAxisRaw("Horizontal");
 
-        //一直检测是否接触地面，供状态使用
-        CheckGrounded();
-
-        // 监听按键 J，且确保当前不在切换状态中，防止狂按
-        if (Input.GetKeyDown(KeyCode.J) && CanSwitchMask)
+        //如果处于“战术定身”状态，拦截玩家的所有移动和跳跃输入
+        if (isPreviewing)
         {
-            TransitionTo(PlayerStateId.MaskSwitch);
+            MoveInput = 0f;
+            // 如果你的跳跃按键是 Space，你也可以在这里把 rb.velocity 的 x 设为 0，防止滑动
         }
 
+        // 处理面具逻辑（透视、切换、理智流逝）
+        HandleMaskSystem();
+
+        // 1. 先进行地面检测
+        CheckGrounded();
+
+        // 2. 更新跳跃相关的计时器 (新增)
+        UpdateJumpTimers();
+
+        // 3. 执行状态逻辑
         StateMachine.CurrentState?.LogicUpdate();
 
+    }
+
+    // 新增：维护两个计时器
+    private void UpdateJumpTimers()
+    {
+        // 土狼时间计时器：在地面时充满，离开地面后开始倒计时
+        if (IsGrounded)
+        {
+            CoyoteTimeCounter = coyoteTime;
+        }
+        else
+        {
+            CoyoteTimeCounter -= Time.deltaTime;
+        }
+
+        // 跳跃缓冲计时器：按下跳跃键时充满，否则倒计时
+        if (Input.GetButtonDown("Jump"))
+        {
+            JumpBufferCounter = jumpBufferTime;
+        }
+        else
+        {
+            JumpBufferCounter -= Time.deltaTime;
+        }
+    }
+
+    // 新增：成功跳跃后清空计时器，防止连跳
+    public void ConsumeJump()
+    {
+        CoyoteTimeCounter = 0f;
+        JumpBufferCounter = 0f;
     }
 
     /// <summary>
@@ -196,29 +242,108 @@ public class PlayerController : MonoBehaviour
     }
 
     /// <summary>
-    /// 切换面具图层状态。
-    /// 这个方法会被 MaskSwitchState 状态调用。
+    /// 处理面具系统的所有输入与理智消耗
     /// </summary>
-    public void ToggleMaskDimension()
+    private void HandleMaskSystem()
     {
+        if (!CanSwitchMask)
+        {
+            if (isPreviewing) CancelPreview();
+            return;
+        }
+        // 战术定身与透视，按下 J 且未戴面具
+        if (Input.GetKeyDown(KeyCode.J) && !isMaskActive && currentSanity > 0)
+        {
+            isPreviewing = true;
+            Time.timeScale = 0.05f; // 时间近乎静止
+            Time.fixedDeltaTime = 0.02f * Time.timeScale; // 必须同步修改物理步长
+
+            OnMaskPreviewChanged?.Invoke(true); // 唤出半透明虚影
+        }
+
+        // 松开 J 键触发切换
+        if (Input.GetKeyUp(KeyCode.J))
+        {
+            if (isPreviewing)
+            {
+                CancelPreview();
+                StartCoroutine(ExecuteMaskSwitchWithHitlag()); // 从透视切入里世界
+            }
+            else if (isMaskActive)
+            {
+                StartCoroutine(ExecuteMaskSwitchWithHitlag()); // 主动摘下面具回表世界
+            }
+        }
+
+        // 理智流逝机制
+        if (isMaskActive)
+        {
+            currentSanity -= activeSanityCostRate * Time.deltaTime;
+
+            // 当理智耗尽，强制弹回表世界
+            if (currentSanity <= 0)
+            {
+                currentSanity = 0;
+                Debug.Log("理智耗尽，强制弹回表世界！");
+                StartCoroutine(ExecuteMaskSwitchWithHitlag()); // 可以直接复用顿帧切换，营造断片感
+            }
+        }
+        else if (!isPreviewing)
+        {
+            // 在表世界安全时，恢复理智
+            if (currentSanity < maxSanity)
+            {
+                currentSanity += sanityRecoverRate * Time.deltaTime;
+                currentSanity = Mathf.Clamp(currentSanity, 0, maxSanity);
+            }
+        }
+    }
+
+    private void CancelPreview()
+    {
+        isPreviewing = false;
+        Time.timeScale = 1f;
+        Time.fixedDeltaTime = 0.02f;
+        OnMaskPreviewChanged?.Invoke(false);
+    }
+
+    /// <summary>
+    /// 带顿帧(Hitlag)的无缝切换协程
+    /// 使用协程是为了实现等待0.15秒的功能
+    /// </summary>
+    private IEnumerator ExecuteMaskSwitchWithHitlag()
+    {
+        // 1. 瞬间画面定格营造力量感
+        Time.timeScale = 0f;
+
+        // 2. 执行底层物理和事件切换
         isMaskActive = !isMaskActive;
-        IsMaskActiveGlobally = isMaskActive; // 同步给静态变量
-
-        // 动态忽略图层碰撞，解决频繁 SetActive 带来的卡顿
-        // 戴面具时(player与MaskLayer)允许碰撞，忽略与 OldWorld 的碰撞
-        // 未戴面具时相反
-
-        // 当戴面具时：允许与 MaskLayer 碰撞，忽略与 OldLayer 碰撞
-        if (playerLayer != -1 && maskLayer != -1)
-            Physics2D.IgnoreLayerCollision(playerLayer, maskLayer, !isMaskActive);
-
-        if (playerLayer != -1 && oldLayer != -1)
-            Physics2D.IgnoreLayerCollision(playerLayer, oldLayer, isMaskActive);
-
-        // 触发广播，所有场景里的面具砖块听到后自己决定显示/隐藏
+        IsMaskActiveGlobally = isMaskActive;
+        UpdateLayerCollisions();
         OnMaskStateChanged?.Invoke(isMaskActive);
 
-        Debug.Log($"面具状态切换为：{isMaskActive} - 已同步物理引擎并广播事件！");
+        // TODO: 这里可以加入相机震动、播放清脆的“碎玻璃”音效等
+
+        // 停顿 0.15 秒（不受 Time.timeScale 影响的真实时间）
+        yield return new WaitForSecondsRealtime(0.15f);
+
+        // 3. 恢复时间，动量完美继承
+        Time.timeScale = 1f;
+        Time.fixedDeltaTime = 0.02f;
+    }
+
+    /// <summary>
+    /// 更新物理引擎的图层碰撞忽略
+    /// </summary>
+    private void UpdateLayerCollisions()
+    {
+        if (playerLayer == -1) return;
+
+        if (newLayer != -1)
+            Physics2D.IgnoreLayerCollision(playerLayer, newLayer, !isMaskActive);
+
+        if (oldLayer != -1)
+            Physics2D.IgnoreLayerCollision(playerLayer, oldLayer, isMaskActive);
     }
 
     // 当角色和任何物体发生物理碰撞时，Unity 会自动调用这个方法
@@ -234,3 +359,32 @@ public class PlayerController : MonoBehaviour
         }
     }
 }
+
+
+#region 弃用
+///// <summary>
+///// 切换面具图层状态。
+///// 这个方法会被 MaskSwitchState 状态调用。
+///// </summary>
+//public void ToggleMaskDimension()
+//{
+//    isMaskActive = !isMaskActive;
+//    IsMaskActiveGlobally = isMaskActive; // 同步给静态变量
+
+//    // 动态忽略图层碰撞，解决频繁 SetActive 带来的卡顿
+//    // 戴面具时(player与MaskLayer)允许碰撞，忽略与 OldWorld 的碰撞
+//    // 未戴面具时相反
+
+//    // 当戴面具时：允许与 MaskLayer 碰撞，忽略与 OldLayer 碰撞
+//    if (playerLayer != -1 && newLayer != -1)
+//        Physics2D.IgnoreLayerCollision(playerLayer, newLayer, !isMaskActive);
+
+//    if (playerLayer != -1 && oldLayer != -1)
+//        Physics2D.IgnoreLayerCollision(playerLayer, oldLayer, isMaskActive);
+
+//    // 触发广播，所有场景里的面具砖块听到后自己决定显示/隐藏
+//    OnMaskStateChanged?.Invoke(isMaskActive);
+
+//    Debug.Log($"面具状态切换为：{isMaskActive} - 已同步物理引擎并广播事件！");
+//}
+#endregion

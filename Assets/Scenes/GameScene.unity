@@ -3431,9 +3431,9 @@ GameObject:
   - component: {fileID: 1936590169}
   - component: {fileID: 1936590168}
   - component: {fileID: 1936590173}
-  m_Layer: 3
+  m_Layer: 9
   m_Name: Traps
-  m_TagString: Trap
+  m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -3933,8 +3933,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 9a571c0db7557764db0e07dad2e2f97b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  targetRenderer: {fileID: 1936590171}
-  showWhenMaskActive: 0
+  showWhenMaskActive: 1
+  tilemap: {fileID: 0}
+  tilemapRenderer: {fileID: 0}
+  originalColor: {r: 1, g: 1, b: 1, a: 1}
+  hasOriginalColor: 0
 --- !u!1001 &2616264415792341520
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -3983,25 +3986,9 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
-    - target: {fileID: 1267691119172708070, guid: 8ca692273248ca6408b23a55823b2060, type: 3}
-      propertyPath: m_Layer
-      value: 8
-      objectReference: {fileID: 0}
-    - target: {fileID: 4714318956879940107, guid: 8ca692273248ca6408b23a55823b2060, type: 3}
-      propertyPath: maskDimensionLayer
-      value: 
-      objectReference: {fileID: 1121966263}
-    - target: {fileID: 4714318956879940107, guid: 8ca692273248ca6408b23a55823b2060, type: 3}
-      propertyPath: objectsToDisappear
-      value: 
-      objectReference: {fileID: 1936590166}
     - target: {fileID: 7188836295803003887, guid: 8ca692273248ca6408b23a55823b2060, type: 3}
       propertyPath: m_Name
       value: Player
-      objectReference: {fileID: 0}
-    - target: {fileID: 7188836295803003887, guid: 8ca692273248ca6408b23a55823b2060, type: 3}
-      propertyPath: m_Layer
-      value: 8
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []

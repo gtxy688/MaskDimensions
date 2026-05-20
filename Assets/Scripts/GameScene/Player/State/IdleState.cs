@@ -24,8 +24,9 @@ public class IdleState : BaseState
         }
 
         // 判定跳跃
-        if (Input.GetButtonDown("Jump") && player.IsGrounded)
+        if (player.JumpBufferCounter > 0f && player.CoyoteTimeCounter > 0f)
         {
+            player.ConsumeJump(); // 消耗掉跳跃指令
             player.TransitionTo(PlayerStateId.Jump);
             return;
         }
