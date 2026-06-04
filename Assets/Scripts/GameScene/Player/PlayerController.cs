@@ -67,6 +67,9 @@ public class PlayerController : MonoBehaviour
    
     public float currentSanity = 100f;
 
+    // 定义一个委托事件，用来广播理智值的变化 (当前值, 最大值)
+    public static event System.Action<float, float> OnSanityChanged;
+
     public bool isPreviewing = false; // 是否处于战术定身(透视)状态
 
     [Header("死亡与重生")]
@@ -91,7 +94,7 @@ public class PlayerController : MonoBehaviour
         StateMachine = new PlayerStateMachine();
         RB = GetComponent<Rigidbody2D>();
         Anim = GetComponent<Animator>();
-
+        currentSanity = config.maxSanity;
         // 初始化状态字典注册表
         stateTable = new Dictionary<PlayerStateId, BaseState>
         {
@@ -127,6 +130,7 @@ public class PlayerController : MonoBehaviour
     private void Update()
     {
         if (isDead) return;
+        HandleSanity();
         MoveInput = Input.GetAxisRaw("Horizontal");
 
         //如果处于“战术定身”状态，拦截玩家的所有移动和跳跃输入
@@ -415,6 +419,35 @@ public class PlayerController : MonoBehaviour
 
         // 强制切回 Idle 状态
         TransitionTo(PlayerStateId.Idle);
+    }
+
+    private void HandleSanity()
+    {
+        // 1. 戴着面具：消耗理智
+        if (isMaskActive)
+        {
+            currentSanity -= config.activeSanityCostRate * Time.deltaTime;
+
+            // 理智耗尽，强制切回表世界
+            if (currentSanity <= 0)
+            {
+                currentSanity = 0;
+                // 复用你之前写的顿帧切换协程，保持手感和特效一致！
+                StartCoroutine(ExecuteMaskSwitchWithHitlag());
+            }
+        }
+        // 2. 未戴面具：恢复理智
+        else if (currentSanity < config.maxSanity)
+        {
+            currentSanity += config.sanityRecoverRate * Time.deltaTime;
+            if (currentSanity > config.maxSanity)
+            {
+                currentSanity = config.maxSanity;
+            }
+        }
+
+        // 3. 广播当前理智值
+        OnSanityChanged?.Invoke(currentSanity, config.maxSanity);
     }
 }
 

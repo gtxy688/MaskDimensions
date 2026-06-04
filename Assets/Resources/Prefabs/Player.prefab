@@ -240,23 +240,21 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   faceMaskObject: {fileID: 507925107269088966}
   switchVFXPrefab: {fileID: 2188641679910793923, guid: 037c23ce07b8cc6429ddd7707dbe8168, type: 3}
-  moveSpeed: 5
-  jumpForce: 5
+  config: {fileID: 11400000, guid: 6427a9dd5563539448a4c436f1196f4a, type: 2}
   groundCheckPoint: {fileID: 2714760583637469316}
   groundCheckSize: {x: 0.96, y: 0.13}
   groundLayer:
     serializedVersion: 2
     m_Bits: 128
-  coyoteTime: 0.15
-  jumpBufferTime: 0.15
   isMaskActive: 0
   maskLayerName: NewDimension
   oldWorldLayerName: OldDimension
-  maxSanity: 100
   currentSanity: 100
-  activeSanityCostRate: 20
-  sanityRecoverRate: 15
   isPreviewing: 0
+  deathVFXPrefab: {fileID: 79351909301875431, guid: c668b8f637beff2469ecff32c03be5a4, type: 3}
+  respawnVFXPrefab: {fileID: 2455607200999567059, guid: 1084beb6143e09647b86da4368029546, type: 3}
+  respawnPoint: {fileID: 0}
+  isDead: 0
 --- !u!50 &8906830532155080056
 Rigidbody2D:
   serializedVersion: 4
