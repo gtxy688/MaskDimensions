@@ -9,6 +9,7 @@ public abstract class BasePanel : MonoBehaviour
     private CanvasGroup canvasGroup;
     //面板淡入淡出的速度
     private float alphaSpeed = 10f;
+    
 
     //隐藏完面板之后 还要处理的事情 比如销毁隐藏后的面板
     private UnityAction hideCallBack = null;

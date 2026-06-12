@@ -1,1 +1,32 @@
-{}
+{
+  "files.exclude": {
+    "**/*.meta": true,
+    "**/Library": true,
+    "**/Temp": true,
+    "**/obj": true,
+    "Assets/Animations": true,
+    "Assets/Animators": true,
+    "Assets/ArtRes": true,
+    "Assets/Resources": true,
+    "Assets/Scenes": true,
+    "Assets/TextMesh Pro": true,
+    "Packages": true,
+    "ProjectSettings": true,
+    "UserSettings": true,
+    "Logs": true,
+    ".vs": true,
+    "*.csproj": true,
+    "*.slnx": true,
+    ".gitattributes": true,
+    ".gitignore": true,
+    ".vsconfig": true
+  },
+  "search.exclude": {
+    "**/*.meta": true,
+    "**/Library": true,
+    "**/Temp": true,
+    "**/obj": true
+  },
+  "git.ignoreLimitWarning": true,
+  "dotnet.defaultSolution": "Mask Dimensions.slnx"
+}
