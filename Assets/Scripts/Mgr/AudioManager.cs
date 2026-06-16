@@ -71,6 +71,23 @@ public class AudioManager : SingletonMono<AudioManager>
     }
 
     /// <summary>
+    /// 回到开始界面时调用，停掉游戏 BGM，重新播放菜单音乐
+    /// </summary>
+    public void PlayMenuBGM()
+    {
+        // 停掉游戏 BGM
+        if (bgmSourceNormal != null) bgmSourceNormal.Stop();
+        if (bgmSourceVoid != null)   bgmSourceVoid.Stop();
+
+        // 播放菜单音乐
+        if (bgmSourceMenu != null && menuBGMClip != null)
+        {
+            bgmSourceMenu.clip = menuBGMClip;
+            bgmSourceMenu.Play();
+        }
+    }
+
+    /// <summary>
     /// 游戏场景启动时调用，载入两首音乐
     /// </summary>
     public void PlayDualBGM(AudioClip normalClip, AudioClip voidClip)

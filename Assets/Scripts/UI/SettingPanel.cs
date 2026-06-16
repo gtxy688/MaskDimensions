@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.UI;
+using UnityEngine.SceneManagement;
 
 //设置面板
 public class SettingPanel : BasePanel
@@ -8,6 +9,7 @@ public class SettingPanel : BasePanel
     public Button btnClose;
     public Button btnClose2;
     public Button btnEnsure;
+    public Button btnBackToTitle; // 返回标题
     public Slider sliderVolume;
     public Slider sliderSound;
     public Toggle toggleVolume; // 音量开关
@@ -60,6 +62,15 @@ public class SettingPanel : BasePanel
         btnEnsure.onClick.AddListener(() =>
         {
             UIManager.Instance.HidePanel<SettingPanel>();
+        });
+
+        // 返回标题
+        btnBackToTitle.onClick.AddListener(() =>
+        {
+            UIManager.Instance.HidePanel<GamePanel>();  // 隐藏游戏面板
+            UIManager.Instance.HidePanel<SettingPanel>(); // 隐藏设置面板
+            AudioManager.Instance.PlayMenuBGM();        // 重新播放菜单音乐
+            SceneManager.LoadSceneAsync("BeginScene");  // 回到开始界面
         });
 
         // 3. 绑定音量滑动条事件
