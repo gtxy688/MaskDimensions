@@ -389,6 +389,9 @@ public class PlayerController : MonoBehaviour
             Instantiate(deathVFXPrefab, transform.position, Quaternion.identity);
         }
 
+        // ★ 播放死亡音效
+        AudioManager.Instance.PlayDeathSFX();
+
         // 3. 等待消散动画播完 (比如 0.5 秒)
         yield return new WaitForSeconds(0.5f);
 
@@ -400,6 +403,9 @@ public class PlayerController : MonoBehaviour
         {
             Instantiate(respawnVFXPrefab, transform.position, Quaternion.identity);
         }
+
+        // ★ 播放复活音效
+        AudioManager.Instance.PlayRespawnSFX();
 
         // 6. 稍微等待凝聚特效快要播完时（比如 0.4 秒），重新显现实体
         yield return new WaitForSeconds(0.4f);
