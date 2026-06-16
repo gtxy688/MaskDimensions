@@ -1,24 +1,30 @@
 {
     "files.exclude": {
-        "**/*.meta": true,
-        "**/Library": true,
-        "**/Temp": true,
-        "**/obj": true,
+        // 隐藏所有非 Scripts 的 Assets 子文件夹
         "Assets/Animations": true,
         "Assets/Animators": true,
         "Assets/ArtRes": true,
         "Assets/Resources": true,
         "Assets/Scenes": true,
         "Assets/TextMesh Pro": true,
-        "Packages": true,
-        "ProjectSettings": true,
-        "UserSettings": true,
-        "Logs": true,
+        "Assets/UIResouces2": true,
+        "Assets/UIResources1": true,
+        // 隐藏根目录项目文件
+        ".claude": true,
         ".vs": true,
         "*.slnx": true,
         ".gitattributes": true,
         ".gitignore": true,
-        ".vsconfig": true
+        ".vsconfig": true,
+        "Packages": true,
+        "ProjectSettings": true,
+        "UserSettings": true,
+        "Logs": true,
+        // 隐藏 Unity 构建产物
+        "**/Library": true,
+        "**/Temp": true,
+        "**/obj": true,
+        "**/*.meta": true
     },
     "search.exclude": {
         "**/*.meta": true,
