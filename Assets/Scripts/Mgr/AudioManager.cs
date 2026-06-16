@@ -20,8 +20,8 @@ public class AudioManager : SingletonMono<AudioManager>
     [SerializeField] private AudioClip respawnSFX;      // 复活音效
 
     [Header("音量持久化")]
-    [SerializeField] private string masterVolumeKey = "MasterVolume";
-    [SerializeField] private string soundVolumeKey   = "SoundVolume";
+    [SerializeField] private string volumeKey = "Volume";
+    [SerializeField] private string soundKey  = "Sound";
 
     private void Start()
     {
@@ -80,8 +80,8 @@ public class AudioManager : SingletonMono<AudioManager>
         bgmSourceVoid.clip = voidClip;
 
         // 从 PlayerPrefs 读取音量（由 SettingPanel 设置）
-        bgmSourceNormal.volume = PlayerPrefs.GetFloat(masterVolumeKey, 1f);
-        bgmSourceVoid.volume   = PlayerPrefs.GetFloat(masterVolumeKey, 1f);
+        bgmSourceNormal.volume = PlayerPrefs.GetFloat(volumeKey, 1f);
+        bgmSourceVoid.volume   = PlayerPrefs.GetFloat(volumeKey, 1f);
 
         // 初始状态：表世界播放，里世界静默（但不调用 Play，省性能）
         bgmSourceNormal.Play();
@@ -137,8 +137,8 @@ public class AudioManager : SingletonMono<AudioManager>
     /// </summary>
     public void ApplyVolumeSettings()
     {
-        float bgmVol = PlayerPrefs.GetFloat(masterVolumeKey, 1f);
-        float sfxVol = PlayerPrefs.GetFloat(soundVolumeKey, 1f);
+        float bgmVol = PlayerPrefs.GetFloat(volumeKey, 1f);
+        float sfxVol = PlayerPrefs.GetFloat(soundKey, 1f);
 
         if (bgmSourceMenu   != null) bgmSourceMenu.volume   = bgmVol;
         if (bgmSourceNormal != null) bgmSourceNormal.volume = bgmVol;

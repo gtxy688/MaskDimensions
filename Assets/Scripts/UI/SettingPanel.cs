@@ -65,7 +65,7 @@ public class SettingPanel : BasePanel
         // 3. 绑定音量滑动条事件
         sliderVolume.onValueChanged.AddListener((float value) =>
         {
-            PlayerPrefs.SetFloat("MasterVolume", value);
+            PlayerPrefs.SetFloat(VolumeKey, value);
             // ★ 实时应用音量
             AudioManager.Instance.ApplyVolumeSettings();
         });
@@ -73,7 +73,7 @@ public class SettingPanel : BasePanel
         // 绑定音效滑动条事件
         sliderSound.onValueChanged.AddListener((float value) =>
         {
-            PlayerPrefs.SetFloat("SoundVolume", value);
+            PlayerPrefs.SetFloat(SoundKey, value);
             // ★ 实时应用音量
             AudioManager.Instance.ApplyVolumeSettings();
         });
@@ -86,7 +86,7 @@ public class SettingPanel : BasePanel
             // 关闭时音量归零，开启时恢复之前的值
             if (!isOn)
             {
-                PlayerPrefs.SetFloat("MasterVolume", 0f);
+                PlayerPrefs.SetFloat(VolumeKey, 0f);
                 sliderVolume.value = 0f;
             }
             else
@@ -102,7 +102,7 @@ public class SettingPanel : BasePanel
             sliderSound.interactable = isOn;
             if (!isOn)
             {
-                PlayerPrefs.SetFloat("SoundVolume", 0f);
+                PlayerPrefs.SetFloat(SoundKey, 0f);
                 sliderSound.value = 0f;
             }
             else
