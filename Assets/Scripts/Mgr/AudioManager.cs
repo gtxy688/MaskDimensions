@@ -7,6 +7,10 @@ public class AudioManager : SingletonMono<AudioManager>
     public AudioSource bgmSourceVoid;   // 里世界 BGM (挂载 BGM Mixer，开启 Loop)
     public AudioSource sfxSource;       // 音效 (挂载 SFX Mixer，关闭 Loop)
 
+    [Header("菜单音乐")]
+    public AudioSource bgmSourceMenu;   // 开始界面音乐 (挂载 BGM Mixer，开启 Loop)
+    [SerializeField] private AudioClip menuBGMClip; // 菜单 BGM
+
     [Header("BGM 音乐片段 (拖入)")]
     [SerializeField] private AudioClip normalBGMClip;  // 表世界 BGM
     [SerializeField] private AudioClip voidBGMClip;    // 里世界 BGM
@@ -24,7 +28,14 @@ public class AudioManager : SingletonMono<AudioManager>
         // 1. 从 PlayerPrefs 读取音量并应用
         ApplyVolumeSettings();
 
-        // 2. 订阅世界切换事件（进入 GameScene 后才会有 PlayerController 触发）
+        // 2. 如果在开始界面，播放菜单音乐
+        if (bgmSourceMenu != null && menuBGMClip != null)
+        {
+            bgmSourceMenu.clip = menuBGMClip;
+            bgmSourceMenu.Play();
+        }
+
+        // 3. 订阅世界切换事件（进入 GameScene 后才会有 PlayerController 触发）
         PlayerController.OnMaskStateChanged += SwitchBGMDimension;
     }
 
@@ -35,16 +46,28 @@ public class AudioManager : SingletonMono<AudioManager>
     }
 
     /// <summary>
-    /// 进入 GameScene 时调用，用 Inspector 中拖入的 Clip 启动双 BGM
+    /// 进入 GameScene 时调用，停止菜单音乐，启动双 BGM
     /// </summary>
     public void PlayDualBGMFromClips()
     {
+        // 停止菜单音乐
+        StopMenuBGM();
+
         if (normalBGMClip == null || voidBGMClip == null)
         {
             Debug.LogWarning("BGM Clip 未设置，请拖入 normalBGMClip 和 voidBGMClip");
             return;
         }
         PlayDualBGM(normalBGMClip, voidBGMClip);
+    }
+
+    /// <summary>
+    /// 停止菜单音乐
+    /// </summary>
+    public void StopMenuBGM()
+    {
+        if (bgmSourceMenu != null)
+            bgmSourceMenu.Stop();
     }
 
     /// <summary>
@@ -117,6 +140,7 @@ public class AudioManager : SingletonMono<AudioManager>
         float bgmVol = PlayerPrefs.GetFloat(masterVolumeKey, 1f);
         float sfxVol = PlayerPrefs.GetFloat(soundVolumeKey, 1f);
 
+        if (bgmSourceMenu   != null) bgmSourceMenu.volume   = bgmVol;
         if (bgmSourceNormal != null) bgmSourceNormal.volume = bgmVol;
         if (bgmSourceVoid   != null) bgmSourceVoid.volume   = bgmVol;
         if (sfxSource       != null) sfxSource.volume       = sfxVol;
