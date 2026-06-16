@@ -7,7 +7,13 @@ public class UIManager:Singleton<UIManager>
     public UIManager()
     {
         //得到场景中的Canvas对象
-        GameObject canvas = GameObject.Instantiate(Resources.Load<GameObject>("UI/Canvas"));
+        GameObject canvasPrefab = Resources.Load<GameObject>("UI/Canvas");
+        if (canvasPrefab == null)
+        {
+            Debug.LogError("[UIManager] 找不到 Resources/UI/Canvas.prefab，请检查资源路径");
+            return;
+        }
+        GameObject canvas = GameObject.Instantiate(canvasPrefab);
         canvasTrans = canvas.transform;
         //过场景不移除该对象 保证这个游戏过程中 只有一个canvas对象
         GameObject.DontDestroyOnLoad(canvas);
@@ -35,12 +41,24 @@ public class UIManager:Singleton<UIManager>
         if (panelDic.ContainsKey(panelName))
             return panelDic[panelName] as T;
         //不存在 就生成一个面板对象
-        GameObject panelObj = GameObject.Instantiate(Resources.Load<GameObject>("UI/" + panelName));
+        GameObject panelPrefab = Resources.Load<GameObject>("UI/" + panelName);
+        if (panelPrefab == null)
+        {
+            Debug.LogError($"[UIManager] 找不到面板预制体：Resources/UI/{panelName}.prefab");
+            return null;
+        }
+        GameObject panelObj = GameObject.Instantiate(panelPrefab);
         panelObj.transform.SetParent(canvasTrans, false);
 
         //处理面板显示逻辑 并且保存在字典中
         //获取面板上挂载的Panel脚本
         T panel = panelObj.GetComponent<T>();
+        if (panel == null)
+        {
+            Debug.LogError($"[UIManager] 预制体 {panelName} 上未挂载 {typeof(T).Name} 组件");
+            GameObject.Destroy(panelObj);
+            return null;
+        }
         //存储到字典中
         panelDic.Add(panelName, panel);
         //调用自己的显示逻辑

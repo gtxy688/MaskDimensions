@@ -21,6 +21,10 @@ public class SettingPanel : BasePanel
     private const string VolumeToggleKey = "VolumeToggle";
     private const string SoundToggleKey = "SoundToggle";
 
+    // 缓存静音前的原始值，防止开关把 PlayerPrefs 覆写为 0 后丢失
+    private float cachedVolume = 1f;
+    private float cachedSound = 1f;
+
     // 重写 BasePanel 的初始化方法
     public override void Init()
     {
@@ -94,15 +98,18 @@ public class SettingPanel : BasePanel
         {
             PlayerPrefs.SetInt(VolumeToggleKey, isOn ? 1 : 0);
             sliderVolume.interactable = isOn;
-            // 关闭时音量归零，开启时恢复之前的值
             if (!isOn)
             {
+                // 缓存当前值后再归零，避免丢失用户设置
+                cachedVolume = PlayerPrefs.GetFloat(VolumeKey, 1f);
                 PlayerPrefs.SetFloat(VolumeKey, 0f);
                 sliderVolume.value = 0f;
             }
             else
             {
-                sliderVolume.value = PlayerPrefs.GetFloat(VolumeKey, 1f);
+                // 从缓存恢复原始值
+                sliderVolume.value = cachedVolume;
+                PlayerPrefs.SetFloat(VolumeKey, cachedVolume);
             }
             AudioManager.Instance.ApplyVolumeSettings();
         });
@@ -113,12 +120,14 @@ public class SettingPanel : BasePanel
             sliderSound.interactable = isOn;
             if (!isOn)
             {
+                cachedSound = PlayerPrefs.GetFloat(SoundKey, 1f);
                 PlayerPrefs.SetFloat(SoundKey, 0f);
                 sliderSound.value = 0f;
             }
             else
             {
-                sliderSound.value = PlayerPrefs.GetFloat(SoundKey, 1f);
+                sliderSound.value = cachedSound;
+                PlayerPrefs.SetFloat(SoundKey, cachedSound);
             }
             AudioManager.Instance.ApplyVolumeSettings();
         });

@@ -5,14 +5,13 @@ using UnityEngine.Events;
 
 public abstract class BasePanel : MonoBehaviour
 {
-    //控制面板透明度组件
-    private CanvasGroup canvasGroup;
-    //面板淡入淡出的速度
-    private float alphaSpeed = 10f;
-    
+    // 控制面板透明度组件（暂未启用淡入淡出，保留以备后用）
+    //private CanvasGroup canvasGroup;
+    // 面板淡入淡出的速度
+    //private float alphaSpeed = 10f;
 
-    //隐藏完面板之后 还要处理的事情 比如销毁隐藏后的面板
-    private UnityAction hideCallBack = null;
+    // 隐藏完面板之后 还要处理的事情 比如销毁隐藏后的面板（暂未启用，Update 中的淡出逻辑已注释）
+    //private UnityAction hideCallBack = null;
 
     //当前面板是隐藏还是显示
     public bool isShow = false;
@@ -77,17 +76,17 @@ public abstract class BasePanel : MonoBehaviour
         isShow = true;
     }
 
-    /// <summary>
-    /// 隐藏面板
-    /// </summary>
-    /// <param name="callBack">隐藏完毕后要做的事</param>
-    public virtual void HideMe(UnityAction callBack)
-    {
-        //从1渐变为0
-        //canvasGroup.alpha = 1;
-        isShow = false;
+    // /// <summary>
+    // /// 隐藏面板
+    // /// </summary>
+    // /// <param name="callBack">隐藏完毕后要做的事</param>
+    // public virtual void HideMe(UnityAction callBack)
+    // {
+    //     //从1渐变为0
+    //     //canvasGroup.alpha = 1;
+    //     isShow = false;
 
-        hideCallBack = callBack;
-    }
+    //     hideCallBack = callBack;
+    // }
 
 }

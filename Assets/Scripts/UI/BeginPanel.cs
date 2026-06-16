@@ -30,12 +30,6 @@ public class BeginPanel :BasePanel
 
         });
 
-        btnSetting.onClick.AddListener(() =>
-        {
-            //显示设置面板
-            UIManager.Instance.ShowPanel<SettingPanel>();
-        });
-
         btnAbout.onClick.AddListener(() =>
         {
             Application.OpenURL(githubUrl);

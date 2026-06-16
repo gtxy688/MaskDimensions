@@ -130,7 +130,6 @@ public class PlayerController : MonoBehaviour
     private void Update()
     {
         if (isDead) return;
-        HandleSanity();
         MoveInput = Input.GetAxisRaw("Horizontal");
 
         //如果处于“战术定身”状态，拦截玩家的所有移动和跳跃输入
@@ -302,6 +301,9 @@ public class PlayerController : MonoBehaviour
                 currentSanity = Mathf.Clamp(currentSanity, 0, config.maxSanity);
             }
         }
+
+        // 广播当前理智值
+        OnSanityChanged?.Invoke(currentSanity, config.maxSanity);
     }
 
     private void CancelPreview()
@@ -427,34 +429,6 @@ public class PlayerController : MonoBehaviour
         TransitionTo(PlayerStateId.Idle);
     }
 
-    private void HandleSanity()
-    {
-        // 1. 戴着面具：消耗理智
-        if (isMaskActive)
-        {
-            currentSanity -= config.activeSanityCostRate * Time.deltaTime;
-
-            // 理智耗尽，强制切回表世界
-            if (currentSanity <= 0)
-            {
-                currentSanity = 0;
-                // 复用你之前写的顿帧切换协程，保持手感和特效一致！
-                StartCoroutine(ExecuteMaskSwitchWithHitlag());
-            }
-        }
-        // 2. 未戴面具：恢复理智
-        else if (currentSanity < config.maxSanity)
-        {
-            currentSanity += config.sanityRecoverRate * Time.deltaTime;
-            if (currentSanity > config.maxSanity)
-            {
-                currentSanity = config.maxSanity;
-            }
-        }
-
-        // 3. 广播当前理智值
-        OnSanityChanged?.Invoke(currentSanity, config.maxSanity);
-    }
 }
 
 
