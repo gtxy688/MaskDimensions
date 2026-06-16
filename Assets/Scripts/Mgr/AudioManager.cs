@@ -24,11 +24,7 @@ public class AudioManager : SingletonMono<AudioManager>
         // 1. 从 PlayerPrefs 读取音量并应用
         ApplyVolumeSettings();
 
-        // 2. 初始化双 BGM（如果已拖入 Clip）
-        if (normalBGMClip != null && voidBGMClip != null)
-            PlayDualBGM(normalBGMClip, voidBGMClip);
-
-        // 3. 订阅世界切换事件
+        // 2. 订阅世界切换事件（进入 GameScene 后才会有 PlayerController 触发）
         PlayerController.OnMaskStateChanged += SwitchBGMDimension;
     }
 
@@ -36,6 +32,19 @@ public class AudioManager : SingletonMono<AudioManager>
     {
         // 取消订阅防泄漏
         PlayerController.OnMaskStateChanged -= SwitchBGMDimension;
+    }
+
+    /// <summary>
+    /// 进入 GameScene 时调用，用 Inspector 中拖入的 Clip 启动双 BGM
+    /// </summary>
+    public void PlayDualBGMFromClips()
+    {
+        if (normalBGMClip == null || voidBGMClip == null)
+        {
+            Debug.LogWarning("BGM Clip 未设置，请拖入 normalBGMClip 和 voidBGMClip");
+            return;
+        }
+        PlayDualBGM(normalBGMClip, voidBGMClip);
     }
 
     /// <summary>

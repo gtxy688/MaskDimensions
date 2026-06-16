@@ -24,7 +24,8 @@ public class BeginPanel :BasePanel
             ao.completed += (obj) =>
             {
                 UIManager.Instance.ShowPanel<GamePanel>();
-                ////关卡初始化
+                // 关卡初始化：启动双世界 BGM
+                AudioManager.Instance.PlayDualBGMFromClips();
             };
 
         });
