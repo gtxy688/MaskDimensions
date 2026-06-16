@@ -1,52 +1,115 @@
 using UnityEngine;
 
-public class AudioManager : MonoBehaviour
+public class AudioManager : SingletonAutoMono<AudioManager>
 {
-    // 单例模式，方便全网随时调用
-    public static AudioManager Instance;
+    [Header("音频播放器 (拖入对应的 AudioSource)")]
+    public AudioSource bgmSourceNormal; // 表世界 BGM (挂载 BGM Mixer，开启 Loop)
+    public AudioSource bgmSourceVoid;   // 里世界 BGM (挂载 BGM Mixer，开启 Loop)
+    public AudioSource sfxSource;       // 音效 (挂载 SFX Mixer，关闭 Loop)
 
-    [Header("音频播放器")]
-    public AudioSource bgmSource;
-    public AudioSource sfxSource;
+    [Header("BGM 音乐片段 (拖入)")]
+    [SerializeField] private AudioClip normalBGMClip;  // 表世界 BGM
+    [SerializeField] private AudioClip voidBGMClip;    // 里世界 BGM
 
-    private void Awake()
+    [Header("音效片段 (拖入)")]
+    [SerializeField] private AudioClip deathSFX;       // 死亡音效
+    [SerializeField] private AudioClip respawnSFX;      // 复活音效
+
+    [Header("音量持久化")]
+    [SerializeField] private string masterVolumeKey = "MasterVolume";
+    [SerializeField] private string soundVolumeKey   = "SoundVolume";
+
+    private void Start()
     {
-        // 经典的单例与跨场景保活逻辑
-        if (Instance == null)
+        // 1. 从 PlayerPrefs 读取音量并应用
+        ApplyVolumeSettings();
+
+        // 2. 初始化双 BGM（如果已拖入 Clip）
+        if (normalBGMClip != null && voidBGMClip != null)
+            PlayDualBGM(normalBGMClip, voidBGMClip);
+
+        // 3. 订阅世界切换事件
+        PlayerController.OnMaskStateChanged += SwitchBGMDimension;
+    }
+
+    private void OnDestroy()
+    {
+        // 取消订阅防泄漏
+        PlayerController.OnMaskStateChanged -= SwitchBGMDimension;
+    }
+
+    /// <summary>
+    /// 游戏场景启动时调用，载入两首音乐
+    /// </summary>
+    public void PlayDualBGM(AudioClip normalClip, AudioClip voidClip)
+    {
+        // 装载音乐片段
+        bgmSourceNormal.clip = normalClip;
+        bgmSourceVoid.clip = voidClip;
+
+        // 从 PlayerPrefs 读取音量（由 SettingPanel 设置）
+        bgmSourceNormal.volume = PlayerPrefs.GetFloat(masterVolumeKey, 1f);
+        bgmSourceVoid.volume   = PlayerPrefs.GetFloat(masterVolumeKey, 1f);
+
+        // 初始状态：表世界播放，里世界静默（但不调用 Play，省性能）
+        bgmSourceNormal.Play();
+        bgmSourceVoid.Stop(); 
+    }
+
+    /// <summary>
+    /// 切换维度时调用，瞬间的硬切（暂停一个，播放/恢复另一个）
+    /// </summary>
+    public void SwitchBGMDimension(bool isVoid)
+    {
+        if (isVoid)
         {
-            Instance = this;
-            // 保证切换场景时，BGM不会突然中断重头播放
-            DontDestroyOnLoad(gameObject); 
+            // 戴上面具进入里世界：暂停表世界，激活里世界
+            bgmSourceNormal.Pause();
+            
+            if (!bgmSourceVoid.isPlaying)
+                bgmSourceVoid.Play(); // 第一次进里世界，从头播放
+            else
+                bgmSourceVoid.UnPause(); // 之后再进，从上次暂停的地方继续
         }
         else
         {
-            Destroy(gameObject);
+            // 摘下面具回到表世界：暂停里世界，恢复表世界
+            bgmSourceVoid.Pause();
+            bgmSourceNormal.UnPause();
         }
     }
 
     /// <summary>
-    /// 播放背景音乐
-    /// </summary>
-    public void PlayBGM(AudioClip bgmClip)
-    {
-        if (bgmClip == null) return;
-        
-        // 如果正在放这首歌，就不管它（防止重复触发导致音乐重头开始）
-        if (bgmSource.clip == bgmClip) return; 
-
-        bgmSource.clip = bgmClip;
-        bgmSource.Play();
-    }
-
-    /// <summary>
-    /// 播放短促音效
+    /// 播放短促音效（跳跃、碎裂、UI点击等）
     /// </summary>
     public void PlaySFX(AudioClip sfxClip)
     {
         if (sfxClip == null) return;
-        
-        // 绝对不要用 sfxSource.Play()！
-        // PlayOneShot 允许多个音效在同一个 AudioSource 上叠加播放，不会互相切断！
-        sfxSource.PlayOneShot(sfxClip); 
+        // PlayOneShot 允许多个音效叠加，不会互相切断
+        sfxSource.PlayOneShot(sfxClip);
+    }
+
+    /// <summary>
+    /// 播放死亡音效
+    /// </summary>
+    public void PlayDeathSFX() => PlaySFX(deathSFX);
+
+    /// <summary>
+    /// 播放复活音效
+    /// </summary>
+    public void PlayRespawnSFX() => PlaySFX(respawnSFX);
+
+    /// <summary>
+    /// 从 PlayerPrefs 重新读取音量并应用到所有 AudioSource。
+    /// 供 SettingPanel 在滑动条变化时调用。
+    /// </summary>
+    public void ApplyVolumeSettings()
+    {
+        float bgmVol = PlayerPrefs.GetFloat(masterVolumeKey, 1f);
+        float sfxVol = PlayerPrefs.GetFloat(soundVolumeKey, 1f);
+
+        if (bgmSourceNormal != null) bgmSourceNormal.volume = bgmVol;
+        if (bgmSourceVoid   != null) bgmSourceVoid.volume   = bgmVol;
+        if (sfxSource       != null) sfxSource.volume       = sfxVol;
     }
 }
