@@ -23,6 +23,7 @@ public class BeginPanel :BasePanel
             AsyncOperation ao = SceneManager.LoadSceneAsync("GameScene");
             ao.completed += (obj) =>
             {
+                UIManager.Instance.ShowPanel<GamePanel>();
                 ////关卡初始化
             };
 
@@ -30,8 +31,8 @@ public class BeginPanel :BasePanel
 
         btnSetting.onClick.AddListener(() =>
         {
-            ////显示设置面板
-            //UIManager.Instance.ShowPanel<SettingPanel>();
+            //显示设置面板
+            UIManager.Instance.ShowPanel<SettingPanel>();
         });
 
         btnAbout.onClick.AddListener(() =>

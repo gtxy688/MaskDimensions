@@ -19,13 +19,15 @@ public abstract class BasePanel : MonoBehaviour
 
     protected virtual void Awake()
     {
-        ////获取面板上挂载的CanavasGroup组件(可以控制面板整体的透明度)
+        #region 控制面板整体的透明度
+        ////获取面板上挂载的CanavasGroup组件(可以)
         //canvasGroup = GetComponent<CanvasGroup>();
         ////如果面板上没有，添加上
         //if (canvasGroup == null)
         //{
         //    canvasGroup = gameObject.AddComponent<CanvasGroup>();
         //}
+        #endregion
     }
 
     protected virtual void Start()
@@ -39,6 +41,7 @@ public abstract class BasePanel : MonoBehaviour
     /// </summary>
     public abstract void Init();
 
+    #region 控制面板整体的透明度
     //protected virtual void Update()
     //{
     //    //显示状态 淡入 透明度从0加到1 到1停止变化
@@ -62,7 +65,8 @@ public abstract class BasePanel : MonoBehaviour
     //        }
     //    }
     //}
-
+    #endregion
+    
     /// <summary>
     /// 显示面板
     /// </summary>
