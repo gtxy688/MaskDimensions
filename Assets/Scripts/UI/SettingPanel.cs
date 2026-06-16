@@ -50,13 +50,17 @@ public class SettingPanel : BasePanel
         {
             Debug.Log("当前游戏音量调节为: " + value);
             PlayerPrefs.SetFloat("MasterVolume", value);
+            // ★ 实时应用音量
+            AudioManager.Instance.ApplyVolumeSettings();
         });
 
         // 绑定音效滑动条事件
         sliderSound.onValueChanged.AddListener((float value) =>
         {
             Debug.Log("当前游戏音效调节为: " + value);
-            PlayerPrefs.SetFloat("SoundVolume", value); 
+            PlayerPrefs.SetFloat("SoundVolume", value);
+            // ★ 实时应用音量
+            AudioManager.Instance.ApplyVolumeSettings();
         });
 
     }
