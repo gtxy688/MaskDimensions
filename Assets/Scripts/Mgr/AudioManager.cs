@@ -1,6 +1,6 @@
 using UnityEngine;
 
-public class AudioManager : SingletonAutoMono<AudioManager>
+public class AudioManager : SingletonMono<AudioManager>
 {
     [Header("音频播放器 (拖入对应的 AudioSource)")]
     public AudioSource bgmSourceNormal; // 表世界 BGM (挂载 BGM Mixer，开启 Loop)

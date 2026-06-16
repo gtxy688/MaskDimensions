@@ -16,7 +16,15 @@ public class SingletonMono<T> : MonoBehaviour where T: MonoBehaviour
 
     protected virtual void Awake()
     {
+        // 如果已有实例且不是自己，销毁多余的
+        if (instance != null && instance != this)
+        {
+            Destroy(gameObject);
+            return;
+        }
+
         instance = this as T;
+        DontDestroyOnLoad(gameObject); // 过场景不销毁
     }
-	
+
 }
