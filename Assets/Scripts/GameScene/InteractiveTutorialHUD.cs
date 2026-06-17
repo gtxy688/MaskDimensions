@@ -1,10 +1,16 @@
-﻿using UnityEngine;
-using TMPro; // 必须引入 TextMeshPro 命名空间
+using UnityEngine;
+using TMPro;
 using System.Collections;
 
 /// <summary>
 /// 交互式按键教学 UI。
-/// 按照步骤显示按键，等待玩家真实按下对应按键后，才进入下一步。
+/// 所有提示通过 StartSoloHint() 统一调度，同一时间只有一个协程在控制 alpha，
+/// 从根源上杜绝多个协程争夺 canvasGroup.alpha 导致的闪烁。
+///
+/// 提示序列：
+///   1. [A/D] 移动 → 等待输入 → [Space] 跳跃 → 等待输入
+///   2. 长按[J] 预览异界 → 等待输入或超时（由 TutorialTriggerZone 触发）
+///   3. 按[J] 回到普通世界 → 等待输入或离开异界或超时（进入异界后自动触发）
 /// </summary>
 [RequireComponent(typeof(CanvasGroup))]
 public class InteractiveTutorialHUD : MonoBehaviour
@@ -14,54 +20,146 @@ public class InteractiveTutorialHUD : MonoBehaviour
     [SerializeField] private TextMeshProUGUI tutorialText;
 
     [Header("动画设置")]
-    public float fadeDuration = 0.5f; // 淡入淡出所需时间
+    public float fadeDuration = 0.5f;
+
+    [Header("J 提示设置")]
+    public float jHintTimeout = 8f;
+
+    private bool movementTutorialDone = false;
+    private bool jHintDone = false;
+    private bool returnHintShown = false;
+    private bool returnHintCompleted = false;
+
+    /// <summary>当前活跃的提示协程。新提示启动前会被 Stop。</summary>
+    private Coroutine currentHint;
 
     private void Awake()
     {
         if (canvasGroup == null) canvasGroup = GetComponent<CanvasGroup>();
-        // 游戏开始时确保完全透明
         canvasGroup.alpha = 0f;
     }
 
     private void Start()
     {
-        // 开始执行教学序列
-        StartCoroutine(TutorialSequenceRoutine());
+        StartSoloHint(MovementTutorialSequence());
     }
 
-    /// <summary>
-    /// 核心教学序列：利用 WaitUntil 等待玩家操作
-    /// </summary>
-    private IEnumerator TutorialSequenceRoutine()
+    private void OnEnable()
     {
-        // === 第一步：移动教学 ===
-        tutorialText.text = "[A / D] 移动";
-        yield return StartCoroutine(FadeAlpha(1f)); // 等待淡入完成
-        // 死死卡在这里，直到玩家按下 A 或 D 键
-        yield return new WaitUntil(() => Input.GetKeyDown(KeyCode.A) || Input.GetKeyDown(KeyCode.D));
-        yield return StartCoroutine(FadeAlpha(0f)); // 等待淡出完成
-
-        // === 第二步：跳跃教学 ===
-        tutorialText.text = "[Space] 跳跃";
-        yield return StartCoroutine(FadeAlpha(1f));
-        // 死死卡在这里，直到玩家按下空格键
-        yield return new WaitUntil(() => Input.GetKeyDown(KeyCode.Space));
-        yield return StartCoroutine(FadeAlpha(0f));
-
-        // === 第三步：面具教学 ===
-        tutorialText.text = "[J] 佩戴面具";
-        yield return StartCoroutine(FadeAlpha(1f));
-        // 死死卡在这里，直到玩家按下 J 键
-        yield return new WaitUntil(() => Input.GetKeyDown(KeyCode.J));
-        yield return StartCoroutine(FadeAlpha(0f));
-
-        // 教学全部结束！你可以考虑在这里彻底禁用这个 UI 物体节省性能
-        gameObject.SetActive(false);
+        PlayerController.OnMaskStateChanged += OnMaskStateChanged;
     }
 
-    /// <summary>
-    /// 封装好的通用淡入淡出协程
-    /// </summary>
+    private void OnDisable()
+    {
+        PlayerController.OnMaskStateChanged -= OnMaskStateChanged;
+    }
+
+    // ===================================================================
+    // 核心：单协程门控。杀掉上一个提示，再启动新的。
+    // ===================================================================
+    private void StartSoloHint(IEnumerator routine)
+    {
+        if (currentHint != null)
+            StopCoroutine(currentHint);
+        currentHint = StartCoroutine(routine);
+    }
+
+    // ===================================================================
+    // 外部事件 → 通过单门控启动提示
+    // ===================================================================
+    public void ShowJHint()
+    {
+        if (jHintDone) return;
+        jHintDone = true;
+        StartSoloHint(JHintRoutine());
+    }
+
+    private void OnMaskStateChanged(bool isMaskActive)
+    {
+        if (isMaskActive && !returnHintShown)
+        {
+            returnHintShown = true;
+            movementTutorialDone = true; // 已不需再等 Space 教学
+            StartSoloHint(ReturnHintRoutine());
+        }
+    }
+
+    // ===================================================================
+    // 提示 1：移动 / 跳跃教学
+    // ===================================================================
+    private IEnumerator MovementTutorialSequence()
+    {
+        // --- A/D ---
+        tutorialText.text = "[A / D] 移动";
+        yield return FadeAlpha(1f);
+        yield return new WaitUntil(() => Input.GetKeyDown(KeyCode.A) || Input.GetKeyDown(KeyCode.D));
+        yield return FadeAlpha(0f);
+
+        // 可能已被外部 Stop，检查一下
+        if (!this.IsAlive()) yield break;
+
+        // --- Space ---
+        tutorialText.text = "[Space] 跳跃";
+        yield return FadeAlpha(1f);
+        yield return new WaitUntil(() => Input.GetKeyDown(KeyCode.Space));
+        canvasGroup.alpha = 0f; // 按过立即隐藏
+
+        movementTutorialDone = true;
+        TryDisable();
+    }
+
+    // ===================================================================
+    // 提示 2：J 键预览 / 切换
+    // ===================================================================
+    private IEnumerator JHintRoutine()
+    {
+        tutorialText.text = "长按[J] 预览异界\n松开 [J] 进入异界";
+        yield return FadeAlpha(1f);
+
+        float timer = 0f;
+        while (timer < jHintTimeout)
+        {
+            if (Input.GetKeyDown(KeyCode.J)) break;
+            timer += Time.unscaledDeltaTime;
+            yield return null;
+        }
+
+        yield return FadeAlpha(0f);
+        TryDisable();
+    }
+
+    // ===================================================================
+    // 提示 3：按 J 回到普通世界
+    // ===================================================================
+    private IEnumerator ReturnHintRoutine()
+    {
+        yield return null; // 等一帧
+
+        tutorialText.text = "按[J] 回到普通世界";
+        yield return FadeAlpha(1f);
+
+        float timer = 0f;
+        while (timer < 8f)
+        {
+            if (Input.GetKeyDown(KeyCode.J)) break;
+            if (!PlayerController.IsMaskActiveGlobally) break;
+            timer += Time.deltaTime;
+            yield return null;
+        }
+
+        yield return FadeAlpha(0f);
+        returnHintCompleted = true;
+    }
+
+    // ===================================================================
+    // 通用
+    // ===================================================================
+    private void TryDisable()
+    {
+        if (movementTutorialDone && jHintDone && returnHintCompleted)
+            gameObject.SetActive(false);
+    }
+
     private IEnumerator FadeAlpha(float targetAlpha)
     {
         float startAlpha = canvasGroup.alpha;
@@ -76,4 +174,7 @@ public class InteractiveTutorialHUD : MonoBehaviour
 
         canvasGroup.alpha = targetAlpha;
     }
+
+    /// <summary>检查 MonoBehaviour 是否还活着（未被 Destroy 且 enabled）。</summary>
+    private bool IsAlive() => this != null && isActiveAndEnabled;
 }

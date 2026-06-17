@@ -54,6 +54,7 @@ public class PlayerController : MonoBehaviour
     // 记录玩家当前是否戴着面具
     public bool isMaskActive = false;
 
+
     // 在 PlayerController 中添加一个公开的静态只读属性,供外界访问玩家是戴着面具
     public static bool IsMaskActiveGlobally { get; private set; }
 
@@ -75,7 +76,6 @@ public class PlayerController : MonoBehaviour
     // 按住 J 多久才显示虚影（防止快速点击闪烁）
     private float previewHoldTimer = 0f;
     private bool previewGhostsShown = false;
-    private const float PREVIEW_HOLD_THRESHOLD = 0.1f;
 
     [Header("死亡与重生")]
     [SerializeField] private GameObject deathVFXPrefab;   // disappear 预制体
@@ -87,6 +87,15 @@ public class PlayerController : MonoBehaviour
     // 事件广播
     public static event Action<bool> OnMaskStateChanged;
     public static event Action<bool> OnMaskPreviewChanged;
+
+    // 新增：理智不足无法切换世界时广播（用于 SanityStatusHints 显示提示#5）
+    public static event System.Action OnInsufficientSanity;
+
+    // 新增：理智耗尽强制弹出时广播（用于 ToastMessage 显示）
+    public static event System.Action OnSanityForcedRecovery;
+
+    // 新增：玩家死亡时广播（用于 SanityStatusHints 清除理智耗尽标记）
+    public static event System.Action OnPlayerDied;
 
     private void Awake()
     {
@@ -222,12 +231,28 @@ public class PlayerController : MonoBehaviour
     /// <summary>
     /// 基于物理引擎的 OverlapBox 碰撞检测。
     /// 用于判定角色是否与地面层发生交叠。
+    /// 异界路面虽然同时在 groundLayer 中，但当前世界禁止的层会被显式排除。
     /// </summary>
     private void CheckGrounded()
     {
         if (groundCheckPoint != null)
         {
-            IsGrounded = Physics2D.OverlapBox(groundCheckPoint.position, groundCheckSize, 0f, groundLayer);
+            Collider2D hit = Physics2D.OverlapBox(groundCheckPoint.position, groundCheckSize, 0f, groundLayer);
+            if (hit != null)
+            {
+                // 显式排除当前世界不应踩到的层（与 IgnoreLayerCollision 双重保险）
+                int hitLayer = hit.gameObject.layer;
+                if (!isMaskActive && hitLayer == newLayer)
+                    IsGrounded = false;
+                else if (isMaskActive && hitLayer == oldLayer)
+                    IsGrounded = false;
+                else
+                    IsGrounded = true;
+            }
+            else
+            {
+                IsGrounded = false;
+            }
         }
     }
 
@@ -267,7 +292,7 @@ public class PlayerController : MonoBehaviour
             isPreviewing = true;
             previewHoldTimer = 0f;
             previewGhostsShown = false;
-            Time.timeScale = 0.05f;
+            Time.timeScale = config.previewTimeScale;
             Time.fixedDeltaTime = 0.02f * Time.timeScale;
             // 不立即显示虚影，等按住一小段时间后才浮现
         }
@@ -276,7 +301,7 @@ public class PlayerController : MonoBehaviour
         if (isPreviewing)
         {
             previewHoldTimer += Time.unscaledDeltaTime;
-            if (!previewGhostsShown && previewHoldTimer >= PREVIEW_HOLD_THRESHOLD)
+            if (!previewGhostsShown && previewHoldTimer >= config.previewHoldThreshold)
             {
                 previewGhostsShown = true;
                 OnMaskPreviewChanged?.Invoke(true);
@@ -288,11 +313,19 @@ public class PlayerController : MonoBehaviour
         {
             if (isPreviewing)
             {
+                // 从预览进入里世界需要足够的理智
+                bool canEnterVoid = currentSanity >= config.minSanityToSwitch;
+
                 if (previewGhostsShown)
                 {
-                    // 按住超过阈值 → 先取消预览，再切换
+                    // 按住超过阈值 → 先取消预览，再决定是否切换
                     CancelPreview();
-                    StartCoroutine(ExecuteMaskSwitchWithHitlag());
+                    if (canEnterVoid)
+                        StartCoroutine(ExecuteMaskSwitchWithHitlag());
+                    else
+                    {
+                        OnInsufficientSanity?.Invoke();
+                    }
                 }
                 else
                 {
@@ -301,11 +334,17 @@ public class PlayerController : MonoBehaviour
                     Time.timeScale = 1f;
                     Time.fixedDeltaTime = 0.02f;
                     // 不调用 OnMaskPreviewChanged，避免闪光
-                    StartCoroutine(ExecuteMaskSwitchWithHitlag());
+                    if (canEnterVoid)
+                        StartCoroutine(ExecuteMaskSwitchWithHitlag());
+                    else
+                    {
+                        OnInsufficientSanity?.Invoke();
+                    }
                 }
             }
             else if (isMaskActive)
             {
+                // 离开里世界不需要理智检查（防止被困）
                 StartCoroutine(ExecuteMaskSwitchWithHitlag());
             }
         }
@@ -319,7 +358,7 @@ public class PlayerController : MonoBehaviour
             if (currentSanity <= 0)
             {
                 currentSanity = 0;
-                Debug.Log("理智耗尽，强制弹回表世界！");
+                OnSanityForcedRecovery?.Invoke();
                 StartCoroutine(ExecuteMaskSwitchWithHitlag()); // 可以直接复用顿帧切换，营造断片感
             }
         }
@@ -396,13 +435,57 @@ public class PlayerController : MonoBehaviour
     }
 
     /// <summary>
+    /// 进入新房间时由 RoomManager 调用。重置状态 + 更新重生点。
+    /// </summary>
+    public void ResetForNewRoom(Transform spawnPoint)
+    {
+        // 更新重生点引用（死亡后回到当前房间入口）
+        respawnPoint = spawnPoint;
+
+        // 传送玩家
+        transform.position = spawnPoint.position;
+
+        // 重置物理
+        RB.velocity = Vector2.zero;
+        RB.simulated = true;
+
+        // 重置动画和显隐
+        Anim.enabled = true;
+        GetComponent<SpriteRenderer>().enabled = true;
+        if (faceMaskObject != null) faceMaskObject.SetActive(false);
+
+        // 重置状态
+        isDead = false;
+        isPreviewing = false;
+        currentSanity = config.maxSanity;
+
+        // 摘下面具——只在之前确实戴着时广播事件，避免无谓的顿帧
+        bool wasMaskActive = isMaskActive;
+        isMaskActive = false;
+        IsMaskActiveGlobally = false;
+        UpdateLayerCollisions();
+        if (wasMaskActive)
+            OnMaskStateChanged?.Invoke(false);
+
+        // 重置时间缩放（取消预览残留）
+        Time.timeScale = 1f;
+        Time.fixedDeltaTime = 0.02f;
+
+        // 切回 Idle 状态
+        TransitionTo(PlayerStateId.Idle);
+    }
+
+    /// <summary>
     /// 供外部脚本（子弹、陷阱等）触发玩家死亡。
     /// isDead 检查防止连续触发。
     /// </summary>
     public void Die()
     {
         if (!isDead)
+        {
+            OnPlayerDied?.Invoke();
             StartCoroutine(DieAndRespawnRoutine());
+        }
     }
 
     // 当角色和任何物体发生物理碰撞时，Unity 会自动调用这个方法
@@ -411,6 +494,7 @@ public class PlayerController : MonoBehaviour
         // 检查撞到的物体是不是贴着 "Trap" 标签
         if (collision.gameObject.CompareTag("Trap"))
         {
+            OnPlayerDied?.Invoke();
             StartCoroutine(DieAndRespawnRoutine());
         }
     }
