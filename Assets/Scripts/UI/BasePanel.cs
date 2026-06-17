@@ -76,17 +76,17 @@ public abstract class BasePanel : MonoBehaviour
         isShow = true;
     }
 
-    // /// <summary>
-    // /// 隐藏面板
-    // /// </summary>
-    // /// <param name="callBack">隐藏完毕后要做的事</param>
-    // public virtual void HideMe(UnityAction callBack)
-    // {
-    //     //从1渐变为0
-    //     //canvasGroup.alpha = 1;
-    //     isShow = false;
+    /// <summary>
+    /// 隐藏面板
+    /// </summary>
+    /// <param name="callBack">隐藏完毕后要做的事</param>
+    public virtual void HideMe(UnityAction callBack)
+    {
+        //从1渐变为0
+        //canvasGroup.alpha = 1;
+        isShow = false;
 
-    //     hideCallBack = callBack;
-    // }
+        // hideCallBack = callBack;
+    }
 
 }

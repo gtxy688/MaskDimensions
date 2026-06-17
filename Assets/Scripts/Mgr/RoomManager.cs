@@ -1,11 +1,15 @@
 using UnityEngine;
 using Cinemachine;
+using System; // 新增：用于 Action 委托
 
 /// <summary>
 /// 关卡管理器（单例）。负责房间切换、相机控制、子弹生成器启停。
 /// </summary>
 public class RoomManager : SingletonMono<RoomManager>
 {
+    // 新增：房间切换时广播（参数 = 房间名字），供 ToastMessage 显示
+    public static event Action<string> OnRoomEntered;
+
     private RoomTrigger currentRoom;
     private GameObject player;
 
@@ -34,12 +38,12 @@ public class RoomManager : SingletonMono<RoomManager>
     }
 
     /// <summary>
-    /// 玩家到达出口时调用。
+    /// 玩家到达出口时调用。直接切换到下一个房间。
     /// </summary>
     public void OnRoomCleared(RoomTrigger nextRoom)
     {
         Debug.Log($"关卡 {currentRoom?.roomConfig?.roomName} 完成！");
-        // 等玩家实际走进下一个房间的触发器时自然触发 EnterRoom
+        EnterRoom(nextRoom);
     }
 
     private void ActivateRoom(RoomTrigger trigger)
@@ -50,10 +54,12 @@ public class RoomManager : SingletonMono<RoomManager>
             trigger.roomVcam.gameObject.SetActive(true);
         }
 
-        // 传送玩家到入口
+        // 传送玩家并重置状态
         if (trigger.playerSpawnPos != null && player != null)
         {
-            player.transform.position = trigger.playerSpawnPos.position;
+            var pc = player.GetComponent<PlayerController>();
+            if (pc != null)
+                pc.ResetForNewRoom(trigger.playerSpawnPos);
         }
 
         // 激活房间子物体（如 BulletSpawner）
@@ -69,10 +75,20 @@ public class RoomManager : SingletonMono<RoomManager>
         }
 
         Debug.Log($"进入房间：{trigger.roomConfig?.roomName}");
+
+        // 新增：广播房间名给 UI
+        OnRoomEntered?.Invoke(trigger.roomConfig?.roomName ?? "未知房间");
     }
 
     private void DeactivateRoom(RoomTrigger trigger)
     {
+        // 禁用房间相机
+        if (trigger.roomVcam != null)
+        {
+            trigger.roomVcam.gameObject.SetActive(false);
+        }
+
+        // 停用房间子物体（如 BulletSpawner）
         foreach (GameObject obj in trigger.activateOnEnter)
         {
             if (obj != null) obj.SetActive(false);

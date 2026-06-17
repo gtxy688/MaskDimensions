@@ -57,8 +57,8 @@ MonoBehaviour:
   voidBGMClip: {fileID: 8300000, guid: 5dee10120c4bea243bdabc8cdd4fbf88, type: 3}
   deathSFX: {fileID: 0}
   respawnSFX: {fileID: 0}
-  masterVolumeKey: MasterVolume
-  soundVolumeKey: SoundVolume
+  volumeKey: Volume
+  soundKey: Sound
 --- !u!82 &2836783246609362112
 AudioSource:
   m_ObjectHideFlags: 0
@@ -361,7 +361,7 @@ AudioSource:
   m_PlayOnAwake: 1
   m_Volume: 1
   m_Pitch: 1
-  Loop: 0
+  Loop: 1
   Mute: 0
   Spatialize: 0
   SpatializePostEffects: 0

@@ -54,4 +54,23 @@ public class PlayerConfigSO : ScriptableObject
     /// 摘下面具回到『现实界』(安全状态)时，理智值每秒自然恢复的速度。
     /// </summary>
     public float sanityRecoverRate = 15f;
+
+    [Header("=== 里世界准入 ===")]
+
+    /// <summary>
+    /// 理智值低于此值时禁止进入里世界。
+    /// </summary>
+    public float minSanityToSwitch = 30f;
+
+    [Header("=== 预览系统 ===")]
+
+    /// <summary>
+    /// 按住 J 多久（秒）才显示虚影预览，防止快速点击闪烁。
+    /// </summary>
+    public float previewHoldThreshold = 0.1f;
+
+    /// <summary>
+    /// 预览模式下的时间缩放倍率。越小慢放效果越强。
+    /// </summary>
+    public float previewTimeScale = 0.05f;
 }

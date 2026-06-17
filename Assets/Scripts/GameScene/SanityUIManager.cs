@@ -1,9 +1,11 @@
 ﻿using UnityEngine;
 using UnityEngine.UI;
+using TMPro;
 
 public class SanityUIManager : MonoBehaviour
 {
     [SerializeField] private Slider sanitySlider;
+    [SerializeField] private TextMeshProUGUI sanityValueText; // 新增：显示 "86 / 100"
 
     private void Awake()
     {
@@ -29,6 +31,12 @@ public class SanityUIManager : MonoBehaviour
         {
             // 计算百分比并更新 Slider
             sanitySlider.value = current / max;
+        }
+
+        // 新增：更新数值文本
+        if (sanityValueText != null)
+        {
+            sanityValueText.text = $"{current:F0} / {max:F0}";
         }
     }
 }

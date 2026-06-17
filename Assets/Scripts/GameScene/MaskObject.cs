@@ -57,24 +57,25 @@ public class MaskObject : MonoBehaviour
 
     private void HandleMaskPreviewChanged(bool isPreviewing)
     {
-        // 仅对里世界物体在透视时显示半透明
-        if (!showWhenMaskActive) return;
-
-        if (isPreviewing && !PlayerController.IsMaskActiveGlobally)
+        if (!PlayerController.IsMaskActiveGlobally)
         {
-            if (tilemapRenderer != null) tilemapRenderer.enabled = true;
-            if (hasOriginalColor && tilemap != null)
+            if (isPreviewing)
             {
-                Color ghost = originalColor;
-                ghost.a = 0.4f;
-                tilemap.color = ghost;
+                // 预览时：表世界物体半透明（将消失），里世界物体半透明（将出现）
+                if (tilemapRenderer != null) tilemapRenderer.enabled = true;
+                if (hasOriginalColor && tilemap != null)
+                {
+                    Color ghost = originalColor;
+                    ghost.a = showWhenMaskActive ? 0.4f : 0.3f;
+                    tilemap.color = ghost;
+                }
             }
-        }
-        else if (!isPreviewing && !PlayerController.IsMaskActiveGlobally)
-        {
-            // 恢复并隐藏
-            if (hasOriginalColor && tilemap != null) tilemap.color = originalColor;
-            if (tilemapRenderer != null) tilemapRenderer.enabled = false;
+            else
+            {
+                // 退出预览：物体恢复
+                if (hasOriginalColor && tilemap != null) tilemap.color = originalColor;
+                if (tilemapRenderer != null) tilemapRenderer.enabled = (showWhenMaskActive == false);
+            }
         }
     }
 }
