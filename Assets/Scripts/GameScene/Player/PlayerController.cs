@@ -72,6 +72,11 @@ public class PlayerController : MonoBehaviour
 
     public bool isPreviewing = false; // 是否处于战术定身(透视)状态
 
+    // 按住 J 多久才显示虚影（防止快速点击闪烁）
+    private float previewHoldTimer = 0f;
+    private bool previewGhostsShown = false;
+    private const float PREVIEW_HOLD_THRESHOLD = 0.1f;
+
     [Header("死亡与重生")]
     [SerializeField] private GameObject deathVFXPrefab;   // disappear 预制体
     [SerializeField] private GameObject respawnVFXPrefab; // appear 预制体
@@ -255,27 +260,53 @@ public class PlayerController : MonoBehaviour
             if (isPreviewing) CancelPreview();
             return;
         }
-        // 战术定身与透视，按下 J 且未戴面具
+
+        // ---- 按下 J：进入慢动作预览模式 ----
         if (Input.GetKeyDown(KeyCode.J) && !isMaskActive && currentSanity > 0)
         {
             isPreviewing = true;
-            Time.timeScale = 0.05f; // 时间近乎静止
-            Time.fixedDeltaTime = 0.02f * Time.timeScale; // 必须同步修改物理步长
-
-            OnMaskPreviewChanged?.Invoke(true); // 唤出半透明虚影
+            previewHoldTimer = 0f;
+            previewGhostsShown = false;
+            Time.timeScale = 0.05f;
+            Time.fixedDeltaTime = 0.02f * Time.timeScale;
+            // 不立即显示虚影，等按住一小段时间后才浮现
         }
 
-        // 松开 J 键触发切换
+        // ---- 按住 J 期间：积累按住时长，到达阈值后显示虚影 ----
+        if (isPreviewing)
+        {
+            previewHoldTimer += Time.unscaledDeltaTime;
+            if (!previewGhostsShown && previewHoldTimer >= PREVIEW_HOLD_THRESHOLD)
+            {
+                previewGhostsShown = true;
+                OnMaskPreviewChanged?.Invoke(true);
+            }
+        }
+
+        // ---- 松开 J：决定是"按住预览后切换"还是"快速点击直接切" ----
         if (Input.GetKeyUp(KeyCode.J))
         {
             if (isPreviewing)
             {
-                CancelPreview();
-                StartCoroutine(ExecuteMaskSwitchWithHitlag()); // 从透视切入里世界
+                if (previewGhostsShown)
+                {
+                    // 按住超过阈值 → 先取消预览，再切换
+                    CancelPreview();
+                    StartCoroutine(ExecuteMaskSwitchWithHitlag());
+                }
+                else
+                {
+                    // 快速点击 → 直接切，不经过预览闪现
+                    isPreviewing = false;
+                    Time.timeScale = 1f;
+                    Time.fixedDeltaTime = 0.02f;
+                    // 不调用 OnMaskPreviewChanged，避免闪光
+                    StartCoroutine(ExecuteMaskSwitchWithHitlag());
+                }
             }
             else if (isMaskActive)
             {
-                StartCoroutine(ExecuteMaskSwitchWithHitlag()); // 主动摘下面具回表世界
+                StartCoroutine(ExecuteMaskSwitchWithHitlag());
             }
         }
 
@@ -362,6 +393,16 @@ public class PlayerController : MonoBehaviour
 
         if (oldLayer != -1)
             Physics2D.IgnoreLayerCollision(playerLayer, oldLayer, isMaskActive);
+    }
+
+    /// <summary>
+    /// 供外部脚本（子弹、陷阱等）触发玩家死亡。
+    /// isDead 检查防止连续触发。
+    /// </summary>
+    public void Die()
+    {
+        if (!isDead)
+            StartCoroutine(DieAndRespawnRoutine());
     }
 
     // 当角色和任何物体发生物理碰撞时，Unity 会自动调用这个方法
