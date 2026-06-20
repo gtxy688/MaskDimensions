@@ -33,7 +33,6 @@ public class BeginPanel :BasePanel
         btnAbout.onClick.AddListener(() =>
         {
             Application.OpenURL(githubUrl);
-            Debug.Log("正在跳转至 GitHub: " + githubUrl);
         });
 
         btnQuit.onClick.AddListener(() =>

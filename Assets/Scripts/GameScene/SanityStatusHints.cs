@@ -52,27 +52,21 @@ public class SanityStatusHints : MonoBehaviour
         PlayerController.OnPlayerDied -= OnPlayerDied;
     }
 
-    // ===================================================================
     // 玩家死亡时清除理智耗尽标记，防止复活后误触恢复提示(#4)
-    // ===================================================================
     private void OnPlayerDied()
     {
         sanityWasDepleted = false;
     }
 
-    // ===================================================================
     // 理智耗尽强制返回时，在 OnMaskStateChanged(false) 之前标记
     // 确保恢复提示(#4)能正确触发
-    // ===================================================================
     private void OnSanityForcedRecovery()
     {
         sanityWasDepleted = true;
     }
 
-    // ===================================================================
     // #3 第一次进入异界 → "在异界会持续消耗理智"
     // #4 理智耗尽强制回到 → "理智耗尽，强制回到普通世界\n回到普通世界后理智会逐渐回升"
-    // ===================================================================
     private void OnMaskStateChanged(bool isMaskActive)
     {
         if (isMaskActive && !hasShownVoidHint)
@@ -88,26 +82,21 @@ public class SanityStatusHints : MonoBehaviour
         }
     }
 
-    // ===================================================================
     // 跟踪理智是否曾经耗尽（为 #4 准备）
-    // ===================================================================
     private void OnSanityChanged(float current, float max)
     {
         if (current <= 0f)
             sanityWasDepleted = true;
     }
 
-    // ===================================================================
+
     // #5：理智不足以切换世界时提示
-    // ===================================================================
     private void OnInsufficientSanity()
     {
-        ShowHint("理智不足30，无法进入异界");
+        ShowHint("理智不足30，无法预览和进入异界");
     }
 
-    // ===================================================================
     // 通用提示
-    // ===================================================================
     private void ShowHint(string text)
     {
         if (currentHintRoutine != null)

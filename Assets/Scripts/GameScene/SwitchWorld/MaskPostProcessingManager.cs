@@ -1,7 +1,7 @@
+using System.Collections;
 using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
-using System.Collections;
 
 /// <summary>
 /// 面具维度切换后处理管理器。
@@ -71,7 +71,7 @@ public class MaskPostProcessingManager : MonoBehaviour
 
         while (timer < glitchDuration)
         {
-            // 【极其重要】：因为主角脚本里用了 Time.timeScale = 0 制造顿帧，
+            // 因为主角脚本里用了 Time.timeScale = 0 制造顿帧，
             // 这里必须使用 Time.unscaledDeltaTime，否则特效会被时间暂停卡住！
             timer += Time.unscaledDeltaTime;
 

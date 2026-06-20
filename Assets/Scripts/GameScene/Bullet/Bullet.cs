@@ -33,10 +33,14 @@ public class Bullet : MonoBehaviour
 
     private void Update()
     {
-        if (stats == null) return;
+        if (stats == null) 
+        {
+            return;
+        }
 
         transform.Translate(direction * (stats.speed * Time.deltaTime));
 
+        // 超过生命周期后回池
         if (Time.time - spawnTime > stats.lifetime)
         {
             BulletSpawner spawner = GetComponentInParent<BulletSpawner>();
@@ -46,6 +50,7 @@ public class Bullet : MonoBehaviour
 
     private void OnTriggerEnter2D(Collider2D other)
     {
+        
         if (other.CompareTag("Player"))
         {
             PlayerController player = other.GetComponent<PlayerController>();

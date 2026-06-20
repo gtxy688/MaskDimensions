@@ -1,13 +1,12 @@
 using UnityEngine;
-using Cinemachine;
-using System; // 新增：用于 Action 委托
+using System; 
 
 /// <summary>
 /// 关卡管理器（单例）。负责房间切换、相机控制、子弹生成器启停。
 /// </summary>
 public class RoomManager : SingletonMono<RoomManager>
 {
-    // 新增：房间切换时广播（参数 = 房间名字），供 ToastMessage 显示
+    // 房间切换时广播（参数 = 房间名字），供 ToastMessage ui显示使用
     public static event Action<string> OnRoomEntered;
 
     private RoomTrigger currentRoom;
@@ -42,7 +41,6 @@ public class RoomManager : SingletonMono<RoomManager>
     /// </summary>
     public void OnRoomCleared(RoomTrigger nextRoom)
     {
-        Debug.Log($"关卡 {currentRoom?.roomConfig?.roomName} 完成！");
         EnterRoom(nextRoom);
     }
 
@@ -67,15 +65,6 @@ public class RoomManager : SingletonMono<RoomManager>
         {
             if (obj != null) obj.SetActive(true);
         }
-
-        // 切换 BGM
-        if (trigger.roomConfig != null && trigger.roomConfig.bgmOverride != null)
-        {
-            Debug.Log($"切换 BGM 为：{trigger.roomConfig.bgmOverride.name}");
-        }
-
-        Debug.Log($"进入房间：{trigger.roomConfig?.roomName}");
-
         // 新增：广播房间名给 UI
         OnRoomEntered?.Invoke(trigger.roomConfig?.roomName ?? "未知房间");
     }

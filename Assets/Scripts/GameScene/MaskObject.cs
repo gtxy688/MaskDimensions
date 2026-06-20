@@ -62,7 +62,10 @@ public class MaskObject : MonoBehaviour
             if (isPreviewing)
             {
                 // 预览时：表世界物体半透明（将消失），里世界物体半透明（将出现）
-                if (tilemapRenderer != null) tilemapRenderer.enabled = true;
+                if (tilemapRenderer != null) 
+                {
+                    tilemapRenderer.enabled = true;
+                }
                 if (hasOriginalColor && tilemap != null)
                 {
                     Color ghost = originalColor;
@@ -73,8 +76,14 @@ public class MaskObject : MonoBehaviour
             else
             {
                 // 退出预览：物体恢复
-                if (hasOriginalColor && tilemap != null) tilemap.color = originalColor;
-                if (tilemapRenderer != null) tilemapRenderer.enabled = (showWhenMaskActive == false);
+                if (hasOriginalColor && tilemap != null) 
+                {
+                    tilemap.color = originalColor;
+                }
+                if (tilemapRenderer != null) 
+                {
+                    tilemapRenderer.enabled = (showWhenMaskActive == false);
+                }
             }
         }
     }

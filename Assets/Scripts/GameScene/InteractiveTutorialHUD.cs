@@ -54,9 +54,7 @@ public class InteractiveTutorialHUD : MonoBehaviour
         PlayerController.OnMaskStateChanged -= OnMaskStateChanged;
     }
 
-    // ===================================================================
     // 核心：单协程门控。杀掉上一个提示，再启动新的。
-    // ===================================================================
     private void StartSoloHint(IEnumerator routine)
     {
         if (currentHint != null)
@@ -64,9 +62,7 @@ public class InteractiveTutorialHUD : MonoBehaviour
         currentHint = StartCoroutine(routine);
     }
 
-    // ===================================================================
     // 外部事件 → 通过单门控启动提示
-    // ===================================================================
     public void ShowJHint()
     {
         if (jHintDone) return;
@@ -84,9 +80,7 @@ public class InteractiveTutorialHUD : MonoBehaviour
         }
     }
 
-    // ===================================================================
     // 提示 1：移动 / 跳跃教学
-    // ===================================================================
     private IEnumerator MovementTutorialSequence()
     {
         // --- A/D ---
@@ -108,12 +102,10 @@ public class InteractiveTutorialHUD : MonoBehaviour
         TryDisable();
     }
 
-    // ===================================================================
     // 提示 2：J 键预览 / 切换
-    // ===================================================================
     private IEnumerator JHintRoutine()
     {
-        tutorialText.text = "长按[J] 预览异界\n松开 [J] 进入异界";
+        tutorialText.text = "长按 [J] 预览异界\n松开 [J] 进入异界";
         yield return FadeAlpha(1f);
 
         float timer = 0f;
@@ -128,9 +120,7 @@ public class InteractiveTutorialHUD : MonoBehaviour
         TryDisable();
     }
 
-    // ===================================================================
     // 提示 3：按 J 回到普通世界
-    // ===================================================================
     private IEnumerator ReturnHintRoutine()
     {
         yield return null; // 等一帧
@@ -151,9 +141,8 @@ public class InteractiveTutorialHUD : MonoBehaviour
         returnHintCompleted = true;
     }
 
-    // ===================================================================
+
     // 通用
-    // ===================================================================
     private void TryDisable()
     {
         if (movementTutorialDone && jHintDone && returnHintCompleted)

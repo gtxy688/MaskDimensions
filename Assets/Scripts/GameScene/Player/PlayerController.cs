@@ -1,8 +1,6 @@
 ﻿using System;
 using System.Collections;
 using System.Collections.Generic;
-using Unity.IO.LowLevel.Unsafe;
-using UnityEditor;
 using UnityEngine;
 
 /// <summary>
@@ -88,13 +86,14 @@ public class PlayerController : MonoBehaviour
     public static event Action<bool> OnMaskStateChanged;
     public static event Action<bool> OnMaskPreviewChanged;
 
-    // 新增：理智不足无法切换世界时广播（用于 SanityStatusHints 显示提示#5）
+    //用于显示ui提示的事件
+    //理智不足无法切换世界时广播（用于 SanityStatusHints 显示提示#5）
     public static event System.Action OnInsufficientSanity;
 
-    // 新增：理智耗尽强制弹出时广播（用于 ToastMessage 显示）
+    // 理智耗尽强制弹出时广播（用于 ToastMessage 显示）
     public static event System.Action OnSanityForcedRecovery;
 
-    // 新增：玩家死亡时广播（用于 SanityStatusHints 清除理智耗尽标记）
+    //玩家死亡时广播（用于 SanityStatusHints 清除理智耗尽标记）
     public static event System.Action OnPlayerDied;
 
     private void Awake()
@@ -287,8 +286,14 @@ public class PlayerController : MonoBehaviour
         }
 
         // ---- 按下 J：进入慢动作预览模式 ----
-        if (Input.GetKeyDown(KeyCode.J) && !isMaskActive && currentSanity > 0)
+        if (Input.GetKeyDown(KeyCode.J) && !isMaskActive)
         {
+            if(currentSanity < config.minSanityToSwitch)
+            {
+                OnInsufficientSanity?.Invoke();
+                return; // 理智不足，无法进入预览
+            }
+            
             isPreviewing = true;
             previewHoldTimer = 0f;
             previewGhostsShown = false;
@@ -313,33 +318,21 @@ public class PlayerController : MonoBehaviour
         {
             if (isPreviewing)
             {
-                // 从预览进入里世界需要足够的理智
-                bool canEnterVoid = currentSanity >= config.minSanityToSwitch;
-
+                // 如果之前已经显示了预览虚影，
+                // 说明玩家是进入了预览模式，
+                // 先取消预览，再切换
                 if (previewGhostsShown)
                 {
-                    // 按住超过阈值 → 先取消预览，再决定是否切换
                     CancelPreview();
-                    if (canEnterVoid)
-                        StartCoroutine(ExecuteMaskSwitchWithHitlag());
-                    else
-                    {
-                        OnInsufficientSanity?.Invoke();
-                    }
+                    StartCoroutine(ExecuteMaskSwitchWithHitlag());
                 }
                 else
                 {
-                    // 快速点击 → 直接切，不经过预览闪现
+                    // 直接切换
                     isPreviewing = false;
                     Time.timeScale = 1f;
                     Time.fixedDeltaTime = 0.02f;
-                    // 不调用 OnMaskPreviewChanged，避免闪光
-                    if (canEnterVoid)
-                        StartCoroutine(ExecuteMaskSwitchWithHitlag());
-                    else
-                    {
-                        OnInsufficientSanity?.Invoke();
-                    }
+                    StartCoroutine(ExecuteMaskSwitchWithHitlag());
                 }
             }
             else if (isMaskActive)
@@ -405,12 +398,11 @@ public class PlayerController : MonoBehaviour
         UpdateLayerCollisions();
         OnMaskStateChanged?.Invoke(isMaskActive);
 
-        // 4. 【新增】：控制脸上纸娃娃面具的显隐
+        // 4. 控制脸上纸娃娃面具的显隐
         if (faceMaskObject != null)
         {
             faceMaskObject.SetActive(isMaskActive);
         }
-        // TODO: 这里可以加入相机震动、播放清脆的“碎玻璃”音效等
 
         // 5.停顿 0.15 秒（不受 Time.timeScale 影响的真实时间）
         yield return new WaitForSecondsRealtime(0.15f);
@@ -508,7 +500,10 @@ public class PlayerController : MonoBehaviour
         RB.simulated = false; // 冻结刚体
         Anim.enabled = false; // 停止人物原画动画
         GetComponent<SpriteRenderer>().enabled = false; // 隐藏主角本体
-        if (faceMaskObject != null) faceMaskObject.SetActive(false); // 隐藏纸娃娃面具
+        if (faceMaskObject != null) 
+        {
+            faceMaskObject.SetActive(false); // 隐藏纸娃娃面具
+        }
 
         // 2. 在当前位置生成死亡消散特效 (disappear)
         if (deathVFXPrefab != null)
@@ -516,7 +511,7 @@ public class PlayerController : MonoBehaviour
             Instantiate(deathVFXPrefab, transform.position, Quaternion.identity);
         }
 
-        // ★ 播放死亡音效
+        // 播放死亡音效
         AudioManager.Instance.PlayDeathSFX();
 
         // 3. 等待消散动画播完 (比如 0.5 秒)
@@ -531,7 +526,7 @@ public class PlayerController : MonoBehaviour
             Instantiate(respawnVFXPrefab, transform.position, Quaternion.identity);
         }
 
-        // ★ 播放复活音效
+        // 播放复活音效
         AudioManager.Instance.PlayRespawnSFX();
 
         // 6. 稍微等待凝聚特效快要播完时（比如 0.4 秒），重新显现实体
@@ -555,32 +550,3 @@ public class PlayerController : MonoBehaviour
     }
 
 }
-
-
-#region 弃用
-///// <summary>
-///// 切换面具图层状态。
-///// 这个方法会被 MaskSwitchState 状态调用。
-///// </summary>
-//public void ToggleMaskDimension()
-//{
-//    isMaskActive = !isMaskActive;
-//    IsMaskActiveGlobally = isMaskActive; // 同步给静态变量
-
-//    // 动态忽略图层碰撞，解决频繁 SetActive 带来的卡顿
-//    // 戴面具时(player与MaskLayer)允许碰撞，忽略与 OldWorld 的碰撞
-//    // 未戴面具时相反
-
-//    // 当戴面具时：允许与 MaskLayer 碰撞，忽略与 OldLayer 碰撞
-//    if (playerLayer != -1 && newLayer != -1)
-//        Physics2D.IgnoreLayerCollision(playerLayer, newLayer, !isMaskActive);
-
-//    if (playerLayer != -1 && oldLayer != -1)
-//        Physics2D.IgnoreLayerCollision(playerLayer, oldLayer, isMaskActive);
-
-//    // 触发广播，所有场景里的面具砖块听到后自己决定显示/隐藏
-//    OnMaskStateChanged?.Invoke(isMaskActive);
-
-//    Debug.Log($"面具状态切换为：{isMaskActive} - 已同步物理引擎并广播事件！");
-//}
-#endregion

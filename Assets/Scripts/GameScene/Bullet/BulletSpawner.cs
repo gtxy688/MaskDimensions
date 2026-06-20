@@ -24,7 +24,10 @@ public class BulletSpawner : MonoBehaviour
 
     public void StartFiring()
     {
-        if (fireCoroutine != null) StopCoroutine(fireCoroutine);
+        if (fireCoroutine != null) 
+        {
+            StopCoroutine(fireCoroutine);
+        }
         fireCoroutine = StartCoroutine(FireRoutine());
     }
 
@@ -48,10 +51,7 @@ public class BulletSpawner : MonoBehaviour
                 Bullet bullet = bulletPool.Get();
                 bullet.transform.position = point.position;
                 bullet.transform.rotation = point.rotation;
-
-                // 根据发射点位置决定方向：左侧点向右，右侧点向左
-                float dirX = point.position.x < 0 ? 1f : -1f;
-                bullet.Fire(new Vector2(dirX, 0f), bulletStats);
+                bullet.Fire(Vector2.right, bulletStats);
             }
         }
     }
