@@ -17,5 +17,8 @@ MonoBehaviour:
   jumpBufferTime: 0.15
   coyoteTime: 0.15
   maxSanity: 100
-  activeSanityCostRate: 30
+  activeSanityCostRate: 20
   sanityRecoverRate: 10
+  minSanityToSwitch: 30
+  previewHoldThreshold: 0.1
+  previewTimeScale: 0.05
