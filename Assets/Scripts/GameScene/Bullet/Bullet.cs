@@ -61,11 +61,5 @@ public class Bullet : MonoBehaviour
                 spawner?.ReturnBullet(this);
             }
         }
-
-        if (other.CompareTag("Wall"))
-        {
-            BulletSpawner spawner = GetComponentInParent<BulletSpawner>();
-            spawner?.ReturnBullet(this);
-        }
     }
 }

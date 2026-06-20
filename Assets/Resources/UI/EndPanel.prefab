@@ -62,7 +62,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   m_Material: {fileID: 0}
-  m_Color: {r: 1, g: 1, b: 1, a: 0.54509807}
+  m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_RaycastTarget: 1
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1
@@ -130,7 +130,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0}
   m_AnchorMax: {x: 0.5, y: 0}
-  m_AnchoredPosition: {x: 15.011024, y: 184.93001}
+  m_AnchoredPosition: {x: 15.011046, y: 184.93002}
   m_SizeDelta: {x: 366.02197, y: 183.78}
   m_Pivot: {x: 0.5, y: 0}
 --- !u!222 &7550974977109193585
@@ -227,7 +227,7 @@ GameObject:
   - component: {fileID: 8286278054941121537}
   - component: {fileID: 3766029721958633096}
   m_Layer: 5
-  m_Name: Text (TMP)
+  m_Name: txtTitle
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -669,7 +669,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_Sprite: {fileID: 21300000, guid: f01a5ad099046234093cb1f1af6e3d5a, type: 3}
+  m_Sprite: {fileID: 21300000, guid: 20577a0696d2c0247a0156d6adf445b8, type: 3}
   m_Type: 0
   m_PreserveAspect: 0
   m_FillCenter: 1

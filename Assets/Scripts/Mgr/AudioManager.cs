@@ -18,6 +18,7 @@ public class AudioManager : SingletonMono<AudioManager>
     [Header("音效片段 (拖入)")]
     [SerializeField] private AudioClip deathSFX;       // 死亡音效
     [SerializeField] private AudioClip respawnSFX;      // 复活音效
+    [SerializeField] private AudioClip endGameSFX;      // 通关音效
 
     [Header("音量持久化")]
     [SerializeField] private string volumeKey = "Volume";
@@ -147,6 +148,11 @@ public class AudioManager : SingletonMono<AudioManager>
     /// 播放复活音效
     /// </summary>
     public void PlayRespawnSFX() => PlaySFX(respawnSFX);
+
+    /// <summary>
+    /// 播放通关音效
+    /// </summary>
+    public void PlayEndGameSFX() => PlaySFX(endGameSFX);
 
     /// <summary>
     /// 从 PlayerPrefs 重新读取音量并应用到所有 AudioSource。

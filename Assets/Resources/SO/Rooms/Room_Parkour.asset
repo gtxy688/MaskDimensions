@@ -12,8 +12,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 8fccc4aa095af1c47b34ca0bb5c72341, type: 3}
   m_Name: Room_Parkour
   m_EditorClassIdentifier: 
-  roomName: "\"\u7B2C\u4E09\u5173\uFF1A\u865A\u7A7A\u8DD1\u9177\""
+  roomName: "\u7B2C\u4E09\u5173\uFF1A\u770B\u6E05\u695A\u518D\u8D70"
   description: "\"\u8868\u4E16\u754C\u65E0\u8DEF\uFF0C\u4F9D\u9760\u9884\u89C8\u89C4\u5212\u91CC\u4E16\u754C\u8DEF\u7EBF\""
-  bulletStats: {fileID: 0}
+  bulletStats: {fileID: 11400000, guid: 7f2d073f8bf0a0a4da5b5bc433076f6b, type: 2}
   fireInterval: 1
   bgmOverride: {fileID: 0}

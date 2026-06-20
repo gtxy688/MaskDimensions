@@ -25,8 +25,16 @@ public class EndGameTrigger : MonoBehaviour
 
         // 冻结玩家输入
         PlayerController player = other.GetComponent<PlayerController>();
+        Rigidbody2D RB = other.GetComponent<Rigidbody2D>();
+        Animator Anim = other.GetComponent<Animator>();
         if (player != null)
             player.isDead = true;
+        RB.velocity = Vector2.zero;
+        RB.simulated = false; // 冻结刚体
+        Anim.enabled = false; // 停止人物原画动画
+
+        // 播放通关音效
+        AudioManager.Instance.PlayEndGameSFX();
 
         UIManager.Instance.ShowPanel<EndPanel>();
     }

@@ -9,8 +9,8 @@ public class BulletSpawner : MonoBehaviour
 {
     [Header("配置")]
     public BulletStatsSO bulletStats;
+    public RoomConfigSO roomConfig;
     public Bullet bulletPrefab;
-    public float fireInterval = 1f;
     public Transform[] spawnPoints;
 
     private ObjectPool<Bullet> bulletPool;
@@ -20,6 +20,16 @@ public class BulletSpawner : MonoBehaviour
     {
         if (bulletPrefab != null)
             bulletPool = new ObjectPool<Bullet>(bulletPrefab, transform);
+    }
+
+    private void OnEnable()
+    {
+        StartFiring();
+    }
+
+    private void OnDisable()
+    {
+        StopFiring();
     }
 
     public void StartFiring()
@@ -44,14 +54,14 @@ public class BulletSpawner : MonoBehaviour
     {
         while (true)
         {
-            yield return new WaitForSeconds(fireInterval);
+            yield return new WaitForSeconds(roomConfig.fireInterval);
 
             foreach (Transform point in spawnPoints)
             {
                 Bullet bullet = bulletPool.Get();
                 bullet.transform.position = point.position;
                 bullet.transform.rotation = point.rotation;
-                bullet.Fire(Vector2.right, bulletStats);
+                bullet.Fire(Vector2.left, bulletStats);
             }
         }
     }

@@ -55,8 +55,9 @@ MonoBehaviour:
   menuBGMClip: {fileID: 8300000, guid: ae93dcdb57e7bcd4d818f197001547a1, type: 3}
   normalBGMClip: {fileID: 8300000, guid: b89695eb03af5dd4d9877fb0f99735d6, type: 3}
   voidBGMClip: {fileID: 8300000, guid: 5dee10120c4bea243bdabc8cdd4fbf88, type: 3}
-  deathSFX: {fileID: 0}
-  respawnSFX: {fileID: 0}
+  deathSFX: {fileID: 8300000, guid: dc247395cb950e34fb00689a203ab222, type: 3}
+  respawnSFX: {fileID: 8300000, guid: 7254616063b6300449bb31c201ffac0f, type: 3}
+  endGameSFX: {fileID: 8300000, guid: 5430cffea7a9ed441ad9d82d5175671e, type: 3}
   volumeKey: Volume
   soundKey: Sound
 --- !u!82 &2836783246609362112

@@ -2,44 +2,53 @@ using UnityEngine;
 using UnityEngine.Tilemaps;
 
 /// <summary>
-/// 里世界独占物体（Tilemap 版本）
-/// 仅使用 Tilemap.color 控制透视半透明效果，使用 TilemapRenderer.enabled 控制显隐。
+/// 维度独占物体。
+/// 根据玩家当前是否戴面具（表/里世界）控制物体的显隐和碰撞。
+/// 支持 Tilemap（Tilemap + TilemapRenderer）和 SpriteRenderer 两种渲染类型。
+///
+/// showWhenMaskActive = true  → 里世界显示（戴面具时）
+/// showWhenMaskActive = false → 表世界显示（未戴面具时）
 /// </summary>
-[RequireComponent(typeof(Tilemap))]
 public class MaskObject : MonoBehaviour
 {
-    [Tooltip("勾选代表它是里世界物体(戴面具显示)；不勾选代表它是表世界物体(戴面具隐藏)")]
+    [Tooltip("勾选 = 里世界显示（戴面具时）；不勾选 = 表世界显示（未戴面具时）")]
     [SerializeField] private bool showWhenMaskActive = true;
 
+    // --- Tilemap 相关（可选） ---
     [SerializeField] private Tilemap tilemap;
     [SerializeField] private TilemapRenderer tilemapRenderer;
-    [SerializeField] private Color originalColor = Color.white;
-    [SerializeField] private bool hasOriginalColor = false;
+    private Color originalColor = Color.white;
+    private bool hasOriginalColor = false;
+
+    // --- SpriteRenderer（可选） ---
+    [SerializeField]private SpriteRenderer spriteRenderer;
 
     private void Awake()
     {
+        // Tilemap（可选，没有也不报错）
         tilemap = GetComponent<Tilemap>();
         tilemapRenderer = GetComponent<TilemapRenderer>();
-
         if (tilemap != null)
         {
             originalColor = tilemap.color;
             hasOriginalColor = true;
         }
+
+        // SpriteRenderer（可选）
+        spriteRenderer = GetComponent<SpriteRenderer>();
     }
 
     private void Start()
     {
-        // 游戏开始时，根据全局静态变量初始化显隐
-        if (tilemapRenderer != null)
-            tilemapRenderer.enabled = (PlayerController.IsMaskActiveGlobally == showWhenMaskActive);
+        SetActiveState(PlayerController.IsMaskActiveGlobally);
     }
 
     private void OnEnable()
     {
-        // 脚本启用时，监听广播
         PlayerController.OnMaskStateChanged += HandleMaskStateChanged;
         PlayerController.OnMaskPreviewChanged += HandleMaskPreviewChanged;
+        // 每次激活（包括对象池复用）都更新一次显隐，与被回收前的状态同步
+        SetActiveState(PlayerController.IsMaskActiveGlobally);
     }
 
     private void OnDisable()
@@ -48,11 +57,23 @@ public class MaskObject : MonoBehaviour
         PlayerController.OnMaskPreviewChanged -= HandleMaskPreviewChanged;
     }
 
+    /// <summary>
+    /// 统一设置显隐状态。
+    /// </summary>
+    private void SetActiveState(bool isMaskActive)
+    {
+        bool shouldShow = (isMaskActive == showWhenMaskActive);
+
+        if (tilemapRenderer != null)
+            tilemapRenderer.enabled = shouldShow;
+
+        if (spriteRenderer != null)
+            spriteRenderer.enabled = shouldShow;
+    }
+
     private void HandleMaskStateChanged(bool isMaskActive)
     {
-        // 使用 TilemapRenderer 控制显隐
-        if (tilemapRenderer != null)
-            tilemapRenderer.enabled = (isMaskActive == showWhenMaskActive);
+        SetActiveState(isMaskActive);
     }
 
     private void HandleMaskPreviewChanged(bool isPreviewing)
@@ -61,28 +82,44 @@ public class MaskObject : MonoBehaviour
         {
             if (isPreviewing)
             {
-                // 预览时：表世界物体半透明（将消失），里世界物体半透明（将出现）
-                if (tilemapRenderer != null) 
-                {
+                // ===== 进入预览 =====
+
+                // 显示Tilemap并调半透明
+                if (tilemapRenderer != null)
                     tilemapRenderer.enabled = true;
-                }
                 if (hasOriginalColor && tilemap != null)
                 {
                     Color ghost = originalColor;
                     ghost.a = showWhenMaskActive ? 0.4f : 0.3f;
                     tilemap.color = ghost;
                 }
+
+                // 显示SpriteRenderer并调半透明
+                if (spriteRenderer != null)
+                {
+                    spriteRenderer.enabled = true;
+                    Color c = spriteRenderer.color;
+                    c.a = showWhenMaskActive ? 0.4f : 0.3f;
+                    spriteRenderer.color = c;
+                }
             }
             else
             {
-                // 退出预览：物体恢复
-                if (hasOriginalColor && tilemap != null) 
-                {
+                // ===== 退出预览 恢复 =====
+
+                // Tilemap恢复
+                if (hasOriginalColor && tilemap != null)
                     tilemap.color = originalColor;
-                }
-                if (tilemapRenderer != null) 
+                if (tilemapRenderer != null)
+                    tilemapRenderer.enabled = !showWhenMaskActive;
+
+                // SpriteRenderer恢复
+                if (spriteRenderer != null)
                 {
-                    tilemapRenderer.enabled = (showWhenMaskActive == false);
+                    Color c = spriteRenderer.color;
+                    c.a = 1f;
+                    spriteRenderer.color = c;
+                    spriteRenderer.enabled = !showWhenMaskActive;
                 }
             }
         }
