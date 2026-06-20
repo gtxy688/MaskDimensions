@@ -491,6 +491,55 @@ public class PlayerController : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// 供 TeleportTrigger 等外部脚本调用。用死亡/重生动画将玩家传送到目标位置。
+    /// 与 DieAndRespawnRoutine 不同的是不重置理智、面具状态，不切 Idle。
+    /// </summary>
+    public void TeleportTo(Transform destination)
+    {
+        if (!isDead)
+            StartCoroutine(TeleportRoutine(destination));
+    }
+
+    private IEnumerator TeleportRoutine(Transform destination)
+    {
+        isDead = true;
+
+        // 1. 保存 SpriteRenderer 状态，用 alpha=0 隐藏（比 enabled=false 更可靠）
+        SpriteRenderer sr = GetComponent<SpriteRenderer>();
+        Color originalColor = sr.color;
+        sr.color = new Color(originalColor.r, originalColor.g, originalColor.b, 0f);
+        if (faceMaskObject != null)
+            faceMaskObject.SetActive(false);
+        RB.velocity = Vector2.zero;
+        RB.simulated = false;
+        Anim.enabled = false;
+
+        // 2. 原位置消散
+        if (deathVFXPrefab != null)
+            Instantiate(deathVFXPrefab, transform.position, Quaternion.identity);
+
+        yield return new WaitForSeconds(0.5f);
+
+        // 3. 传送
+        transform.position = destination.position;
+
+        // 4. 目标位置凝聚
+        if (respawnVFXPrefab != null)
+            Instantiate(respawnVFXPrefab, destination.position, Quaternion.identity);
+
+        yield return new WaitForSeconds(0.4f);
+
+        // 5. 恢复
+        sr.color = originalColor;
+        RB.simulated = true;
+        Anim.enabled = true;
+        if (faceMaskObject != null)
+            faceMaskObject.SetActive(isMaskActive);
+
+        isDead = false;
+    }
+
     private IEnumerator DieAndRespawnRoutine()
     {
         isDead = true;
