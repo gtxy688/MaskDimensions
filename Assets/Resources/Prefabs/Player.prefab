@@ -242,7 +242,7 @@ MonoBehaviour:
   switchVFXPrefab: {fileID: 2188641679910793923, guid: 037c23ce07b8cc6429ddd7707dbe8168, type: 3}
   config: {fileID: 11400000, guid: 6427a9dd5563539448a4c436f1196f4a, type: 2}
   groundCheckPoint: {fileID: 2714760583637469316}
-  groundCheckSize: {x: 0.96, y: 0.13}
+  groundCheckSize: {x: 0.2, y: 0.1}
   groundLayer:
     serializedVersion: 2
     m_Bits: 128
