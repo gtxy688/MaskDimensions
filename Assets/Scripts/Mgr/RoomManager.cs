@@ -15,7 +15,18 @@ public class RoomManager : SingletonMono<RoomManager>
     protected override void Awake()
     {
         base.Awake();
-        player = GameObject.FindGameObjectWithTag("Player");
+        // player 不在 Awake 缓存——因为单例跨场景不销毁，
+        // Awake 只跑一次，第二次加载时需要重新查找 Player
+    }
+
+    /// <summary>
+    /// 懒获取 Player 对象，跨场景重载时自动刷新引用。
+    /// </summary>
+    private GameObject GetPlayer()
+    {
+        if (player == null || !player.scene.IsValid())
+            player = GameObject.FindGameObjectWithTag("Player");
+        return player;
     }
 
     /// <summary>
@@ -41,11 +52,18 @@ public class RoomManager : SingletonMono<RoomManager>
     /// </summary>
     public void OnRoomCleared(RoomTrigger nextRoom)
     {
+        if (nextRoom == null)
+        {
+            Debug.LogError("[RoomManager] OnRoomCleared: targetRoom 为空！请检查 RoomExit 的引用。");
+            return;
+        }
         EnterRoom(nextRoom);
     }
 
     private void ActivateRoom(RoomTrigger trigger)
     {
+        if (trigger == null) return;
+
         // 切换相机：启用当前房间 vcam
         if (trigger.roomVcam != null)
         {
@@ -53,9 +71,10 @@ public class RoomManager : SingletonMono<RoomManager>
         }
 
         // 传送玩家并重置状态
-        if (trigger.playerSpawnPos != null && player != null)
+        GameObject playerGo = GetPlayer();
+        if (trigger.playerSpawnPos != null && playerGo != null)
         {
-            var pc = player.GetComponent<PlayerController>();
+            var pc = playerGo.GetComponent<PlayerController>();
             if (pc != null)
                 pc.ResetForNewRoom(trigger.playerSpawnPos);
         }
