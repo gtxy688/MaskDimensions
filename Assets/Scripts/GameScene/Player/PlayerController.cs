@@ -45,6 +45,10 @@ public class PlayerController : MonoBehaviour
     [SerializeField] private Vector2 groundCheckSize = new Vector2(0.5f, 0.1f);
     [SerializeField] private LayerMask groundLayer;
 
+    [Header("墙壁检测")]
+    [SerializeField] private Transform wallCheckPoint;
+    [SerializeField] private Vector2 wallCheckSize = new Vector2(0.1f, 0.6f);
+
     public float CoyoteTimeCounter { get; private set; }
     public float JumpBufferCounter { get; private set; }
     public bool IsGrounded { get; private set; }
@@ -264,6 +268,28 @@ public class PlayerController : MonoBehaviour
         CheckGrounded();
     }
 
+    /// <summary>
+    /// 检测角色在指定水平方向上是否贴着墙壁。
+    /// direction > 0 检测右侧，< 0 检测左侧。
+    /// </summary>
+    public bool IsTouchingWall(float direction)
+    {
+        if (direction == 0 || wallCheckPoint == null) return false;
+
+        Vector2 dir = Vector2.right * Mathf.Sign(direction);
+        Vector2 checkPos = (Vector2)wallCheckPoint.position + dir * 0.05f;
+
+        Collider2D hit = Physics2D.OverlapBox(checkPos, wallCheckSize, 0f, groundLayer);
+        if (hit == null) return false;
+
+        // 双重世界排除
+        int hitLayer = hit.gameObject.layer;
+        if (!isMaskActive && hitLayer == newLayer) return false;
+        if (isMaskActive && hitLayer == oldLayer) return false;
+
+        return true;
+    }
+
     //绘制一个红色的框，供调试
     private void OnDrawGizmosSelected()
     {
@@ -271,6 +297,11 @@ public class PlayerController : MonoBehaviour
         {
             Gizmos.color = Color.red;
             Gizmos.DrawWireCube(groundCheckPoint.position, groundCheckSize);
+        }
+        if (wallCheckPoint != null)
+        {
+            Gizmos.color = Color.blue;
+            Gizmos.DrawWireCube(wallCheckPoint.position, wallCheckSize);
         }
     }
 

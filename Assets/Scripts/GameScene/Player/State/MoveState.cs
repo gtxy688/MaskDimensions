@@ -36,7 +36,11 @@ public class MoveState : BaseState
 
     public override void PhysicsUpdate()
     {
-        player.RB.velocity = new Vector2(player.MoveInput * player.MoveSpeed, player.RB.velocity.y);
+        float targetXVel = player.MoveInput * player.MoveSpeed;
+        if (player.MoveInput != 0 && player.IsTouchingWall(player.MoveInput))
+            targetXVel = 0f;
+
+        player.RB.velocity = new Vector2(targetXVel, player.RB.velocity.y);
         player.UpdateFacingDirection();
     }
 
