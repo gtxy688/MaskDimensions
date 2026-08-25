@@ -52,10 +52,12 @@ interface ICollisionFilter
 
 1. **X/Y 分轴迭代**：先水平后垂直，每轴独立检测与修正。禁止一次性斜向位移。
 2. **SkinWidth = 0.015f**：射线原点从碰撞盒内缩 SkinWidth；修正位移时保留 SkinWidth 间隙，防浮点穿透/卡缝。
-3. **命中距离为 0 的处理**：跳过该命中（防重叠抖动）。
+3. **命中距离的处理（重叠回退，穿墙根因修复）**：命中后位移 = `(distance - SkinWidth) * 方向`。distance < SkinWidth（含 0，已重叠）时该公式**自动产生负位移 = 退出重叠**。禁止"跳过 distance==0 的命中"或"penetration * 方向"（方向反，会把物体往墙里推——本任务实际踩过的坑）。
 4. **每条射线都过 `ICollisionFilter.Allow()`**：过滤器放行才参与碰撞。
-5. **物理层不读输入**：Move 的 velocity 由调用方（PlayerController）算好传入。
-6. **不产生 GC 压力**：射线数组/临时数据避免每帧分配（面试点）。
+5. **Move() 开头必须 `Physics2D.SyncTransforms()`**：外部代码/本帧内修改 transform.position 后，物理缓存的碰撞体 bounds 不会立即更新；未同步时射线基于陈旧位置发出（实测偏移 0.35 单位）→ 碰撞失效 → 穿墙（本项目实测根因，已修复）。
+6. **物理层不读输入**：Move 的 velocity 由调用方（PlayerController）算好传入。
+7. **不产生 GC 压力**：射线数组/临时数据避免每帧分配（面试点）。
+8. **场景出生位置不得与地形重叠**：出生时与墙/天花板重叠会导致首帧检测混乱；物体出生点应贴地或留出 SkinWidth 余量。
 
 ## 依赖
 
