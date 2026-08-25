@@ -2,8 +2,8 @@ using System.Collections;
 using UnityEngine;
 
 /// <summary>
-/// 横向扫射子弹生成器。挂在第 2 关的场景中，进入房间时由 RoomManager 激活。
-/// 从屏幕一侧发射横向子弹，穿越整个房间。
+/// 扫射子弹生成器。挂在关卡场景中，进入房间时由 RoomManager 激活。
+/// 利用泛型对象池管理子弹生命周期，并向子弹分发策略。
 /// </summary>
 public class BulletSpawner : MonoBehaviour
 {
@@ -12,18 +12,29 @@ public class BulletSpawner : MonoBehaviour
     public RoomConfigSO roomConfig;
     public Bullet bulletPrefab;
     public Transform[] spawnPoints;
+    [SerializeField] private int prewarmCount = 15;
+    [SerializeField] private int maxPoolCapacity = 50;
 
     private ObjectPool<Bullet> bulletPool;
     private Coroutine fireCoroutine;
+    private Transform playerTransform;
 
     private void Awake()
     {
         if (bulletPrefab != null)
-            bulletPool = new ObjectPool<Bullet>(bulletPrefab, transform);
+        {
+            bulletPool = new ObjectPool<Bullet>(bulletPrefab, transform, prewarmCount, maxPoolCapacity);
+        }
     }
 
     private void OnEnable()
     {
+        GameObject playerObj = GameObject.FindGameObjectWithTag("Player");
+        if (playerObj != null)
+        {
+            playerTransform = playerObj.transform;
+        }
+
         StartFiring();
     }
 
@@ -52,22 +63,32 @@ public class BulletSpawner : MonoBehaviour
 
     private IEnumerator FireRoutine()
     {
+        float interval = roomConfig != null ? roomConfig.fireInterval : 1f;
+        BulletStatsSO stats = bulletStats ?? (roomConfig != null ? roomConfig.bulletStats : null);
+
         while (true)
         {
-            yield return new WaitForSeconds(roomConfig.fireInterval);
+            yield return new WaitForSeconds(interval);
+
+            if (spawnPoints == null || spawnPoints.Length == 0 || stats == null || bulletPool == null)
+            {
+                continue;
+            }
 
             foreach (Transform point in spawnPoints)
             {
+                if (point == null) continue;
+
                 Bullet bullet = bulletPool.Get();
                 bullet.transform.position = point.position;
                 bullet.transform.rotation = point.rotation;
-                bullet.Fire(Vector2.left, bulletStats);
+                bullet.Fire(Vector2.left, stats, null, playerTransform);
             }
         }
     }
 
     public void ReturnBullet(Bullet bullet)
     {
-        bulletPool.Return(bullet);
+        bulletPool?.Return(bullet);
     }
 }

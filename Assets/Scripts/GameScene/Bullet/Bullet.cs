@@ -1,16 +1,19 @@
 using UnityEngine;
 
 /// <summary>
-/// 单个子弹的行为。由 BulletSpawner 从对象池取出并发射。
-/// 飞行方向在 Fire() 时设定，到达 lifetime 后自动回池。
+/// 单个子弹实体（Context 环境类）。
+/// 遵循策略模式（Strategy Pattern）与对象池规范（IPoolable），负责驱动弹道运动与生命周期回收。
 /// </summary>
 [RequireComponent(typeof(SpriteRenderer))]
-public class Bullet : MonoBehaviour
+public class Bullet : MonoBehaviour, IPoolable
 {
     public BulletStatsSO stats;
-    private Vector2 direction;
+    private IBulletTrajectoryStrategy trajectoryStrategy;
+    private Vector2 initialDirection;
     private float spawnTime;
     private SpriteRenderer spriteRenderer;
+    private Transform trackingTarget;
+    private bool isFired = false;
 
     private void Awake()
     {
@@ -18,48 +21,90 @@ public class Bullet : MonoBehaviour
     }
 
     /// <summary>
-    /// 从对象池取出后调用，初始化子弹参数。
+    /// IPoolable 接口实现：从池中取出时重置状态
     /// </summary>
-    public void Fire(Vector2 dir, BulletStatsSO bulletStats)
+    public void OnSpawn()
+    {
+        isFired = false;
+        trackingTarget = null;
+    }
+
+    /// <summary>
+    /// IPoolable 接口实现：回池前清理状态
+    /// </summary>
+    public void OnDespawn()
+    {
+        isFired = false;
+        trajectoryStrategy = null;
+        trackingTarget = null;
+    }
+
+    /// <summary>
+    /// 发射子弹，注入弹道策略与目标。
+    /// </summary>
+    public void Fire(Vector2 dir, BulletStatsSO bulletStats, IBulletTrajectoryStrategy customStrategy = null, Transform target = null)
     {
         stats = bulletStats;
-        direction = dir.normalized;
+        initialDirection = dir.normalized;
         spawnTime = Time.time;
-        gameObject.SetActive(true);
+        trackingTarget = target;
+
+        // 如果未传入自定义策略，则根据配置生成默认策略
+        trajectoryStrategy = customStrategy ?? stats?.CreateStrategy() ?? new LinearStrategy();
 
         if (spriteRenderer != null && stats != null)
+        {
             spriteRenderer.color = stats.color;
+        }
+
+        isFired = true;
+        gameObject.SetActive(true);
     }
 
     private void Update()
     {
-        if (stats == null) 
+        if (!isFired || stats == null) return;
+
+        float elapsedTime = Time.time - spawnTime;
+
+        // 超过生命周期自动回池
+        if (elapsedTime > stats.lifetime)
         {
+            RecycleSelf();
             return;
         }
 
-        transform.Translate(direction * (stats.speed * Time.deltaTime));
-
-        // 超过生命周期后回池
-        if (Time.time - spawnTime > stats.lifetime)
+        // 通过策略计算即时速度并移动
+        if (trajectoryStrategy != null)
         {
-            BulletSpawner spawner = GetComponentInParent<BulletSpawner>();
-            spawner?.ReturnBullet(this);
+            Vector2 velocity = trajectoryStrategy.CalculateVelocity(elapsedTime, initialDirection, stats, transform, trackingTarget);
+            transform.Translate(velocity * Time.deltaTime, Space.World);
         }
     }
 
     private void OnTriggerEnter2D(Collider2D other)
     {
-        
         if (other.CompareTag("Player"))
         {
             PlayerController player = other.GetComponent<PlayerController>();
-            if (player != null)
+            if (player != null && !player.isDead)
             {
                 player.Die();
-                BulletSpawner spawner = GetComponentInParent<BulletSpawner>();
-                spawner?.ReturnBullet(this);
+                RecycleSelf();
             }
+        }
+    }
+
+    private void RecycleSelf()
+    {
+        BulletSpawner spawner = GetComponentInParent<BulletSpawner>();
+        if (spawner != null)
+        {
+            spawner.ReturnBullet(this);
+        }
+        else
+        {
+            gameObject.SetActive(false);
         }
     }
 }

@@ -1,0 +1,52 @@
+Shader "Custom/DimensionSprite"
+{
+    Properties
+    {
+        [PerRendererData] _MainTex ("Sprite Texture", 2D) = "white" {}
+        _Color ("Tint", Color) = (1,1,1,1)
+        [MaterialToggle] PixelSnap ("Pixel snap", Float) = 0
+        [HideInInspector] _RendererColor ("RendererColor", Color) = (1,1,1,1)
+        [HideInInspector] _Flip ("Flip", Vector) = (1,1,1,1)
+
+        [Header(Stencil)]
+        _StencilRef ("Stencil ID", Int) = 1
+        [Enum(UnityEngine.Rendering.CompareFunction)] _StencilComp ("Stencil Comparison", Int) = 3 // 3 = Equal (里世界), 6 = NotEqual (表世界), 8 = Always
+    }
+
+    SubShader
+    {
+        Tags
+        {
+            "Queue"="Transparent"
+            "IgnoreProjector"="True"
+            "RenderType"="Transparent"
+            "PreviewType"="Plane"
+            "CanUseSpriteAtlas"="True"
+        }
+
+        Cull Off
+        Lighting Off
+        ZWrite Off
+        Blend One OneMinusSrcAlpha
+
+        Pass
+        {
+            Stencil
+            {
+                Ref [_StencilRef]
+                Comp [_StencilComp]
+                Pass Keep
+            }
+
+            CGPROGRAM
+            #pragma vertex SpriteVert
+            #pragma fragment SpriteFrag
+            #pragma target 2.0
+            #pragma multi_compile_instancing
+            #pragma multi_compile_local _ PIXELSNAP_ON
+            #pragma multi_compile _ ETC1_EXTERNAL_ALPHA
+            #include "UnitySprites.cginc"
+            ENDCG
+        }
+    }
+}

@@ -72,8 +72,10 @@
 
 - [ ] **步骤 2：删除两个物理文件**
 
+注意：这两个文件当前是**未跟踪**状态（`git status` 显示 `?? Assets/Scripts/GameScene/Physics/`），`git rm` 对未跟踪文件会报错，用普通文件删除即可。
+
 ```bash
-git rm "Assets/Scripts/GameScene/Physics/RaycastController2D.cs" "Assets/Scripts/GameScene/Physics/PlayerPhysicsController2D.cs"
+Remove-Item "Assets/Scripts/GameScene/Physics/RaycastController2D.cs", "Assets/Scripts/GameScene/Physics/PlayerPhysicsController2D.cs"
 ```
 
 - [ ] **步骤 3：从 manifest.json 移除 PPv2**
@@ -425,9 +427,20 @@ WorldState.OnMaskStateChanged += SwitchBGMDimension;
 WorldState.OnMaskStateChanged -= SwitchBGMDimension;
 ```
 
-- [ ] **步骤 5：用户验收 + Commit**
+- [ ] **步骤 5：场景挂载 WorldState（编辑器操作，用户在 Unity 中执行）**
 
-验收清单：`Docs/tests/02-dimension-test.md` 中「全局状态已移除」前置确认（`IsMaskActiveGlobally` 尚在 PlayerController，任务 4 删除；本任务验收事件迁移：切换时 UI/音频/显隐仍响应）。
+注意：`WorldState : SingletonMono<WorldState>` 是手动挂载的 MonoBehaviour 单例（不是 SingletonAutoMono），**必须在场景中放置实例**，否则 `WorldState.Instance` 为空、事件迁移后维度切换无响应。
+
+编辑器操作：
+1. 打开 `GameScene`，在 Hierarchy 创建空对象，命名 `WorldState`
+2. Add Component → 搜索 `WorldState` 挂上
+3. 确认场景中只有一个该对象
+
+若跨场景需要常驻：`SingletonMono` 的 Awake 已调 `DontDestroyOnLoad`，但需注意它是"场景首次加载时挂载"——若从 BeginScene 进入 GameScene，应在 GameScene 挂即可（玩家切换逻辑只在 GameScene 用）。
+
+- [ ] **步骤 6：用户验收 + Commit**
+
+验收清单：`Docs/tests/02-dimension-test.md` 中「全局状态已移除」前置确认（`IsMaskActiveGlobally` 尚在 PlayerController，任务 4 删除；本任务验收事件迁移：切换时 UI/音频/显隐仍响应，且 `WorldState.Instance` 非空）。
 
 ```bash
 git add Assets/Scripts/GameScene/SwitchWorld Assets/Scripts/Mgr

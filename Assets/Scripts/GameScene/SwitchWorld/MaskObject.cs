@@ -21,7 +21,7 @@ public class MaskObject : MonoBehaviour
     private bool hasOriginalColor = false;
 
     // --- SpriteRenderer（可选） ---
-    [SerializeField]private SpriteRenderer spriteRenderer;
+    [SerializeField] private SpriteRenderer spriteRenderer;
 
     private void Awake()
     {
@@ -82,7 +82,7 @@ public class MaskObject : MonoBehaviour
         {
             if (isPreviewing)
             {
-                // ===== 进入预览 =====
+                // ===== 进入预览（全屏虚影路径预判） =====
 
                 // 显示Tilemap并调半透明
                 if (tilemapRenderer != null)

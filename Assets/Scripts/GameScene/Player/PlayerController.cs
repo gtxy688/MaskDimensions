@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -13,7 +13,9 @@ public enum PlayerStateId
     Move,
     Jump,
     Fall,
-    MaskSwitch
+    MaskSwitch,
+    Hit,
+    Die
 }
 
 /// <summary>
@@ -115,10 +117,12 @@ public class PlayerController : MonoBehaviour
         // 初始化状态字典注册表
         stateTable = new Dictionary<PlayerStateId, BaseState>
         {
-           { PlayerStateId.Idle, new IdleState(this, StateMachine) },
+            { PlayerStateId.Idle, new IdleState(this, StateMachine) },
             { PlayerStateId.Move, new MoveState(this, StateMachine) },
             { PlayerStateId.Jump, new JumpState(this, StateMachine) },
             { PlayerStateId.Fall, new FallState(this, StateMachine) },
+            { PlayerStateId.Hit, new HitState(this, StateMachine) },
+            { PlayerStateId.Die, new DieState(this, StateMachine) }
         };
     }
 
@@ -506,8 +510,22 @@ public class PlayerController : MonoBehaviour
     {
         if (!isDead)
         {
+            TransitionTo(PlayerStateId.Die);
             OnPlayerDied?.Invoke();
             StartCoroutine(DieAndRespawnRoutine());
+        }
+    }
+
+    /// <summary>
+    /// 受到攻击受击判定与击退
+    /// </summary>
+    public void TakeHit(Vector2 knockbackForce)
+    {
+        if (isDead) return;
+        TransitionTo(PlayerStateId.Hit);
+        if (RB != null)
+        {
+            RB.velocity = knockbackForce;
         }
     }
 
@@ -517,8 +535,7 @@ public class PlayerController : MonoBehaviour
         // 检查撞到的物体是不是贴着 "Trap" 标签
         if (collision.gameObject.CompareTag("Trap"))
         {
-            OnPlayerDied?.Invoke();
-            StartCoroutine(DieAndRespawnRoutine());
+            Die();
         }
     }
 
@@ -529,7 +546,10 @@ public class PlayerController : MonoBehaviour
     public void TeleportTo(Transform destination)
     {
         if (!isDead)
+        {
+            TransitionTo(PlayerStateId.Die);
             StartCoroutine(TeleportRoutine(destination));
+        }
     }
 
     private IEnumerator TeleportRoutine(Transform destination)
@@ -569,11 +589,13 @@ public class PlayerController : MonoBehaviour
             faceMaskObject.SetActive(isMaskActive);
 
         isDead = false;
+        TransitionTo(PlayerStateId.Idle);
     }
 
     private IEnumerator DieAndRespawnRoutine()
     {
         isDead = true;
+        TransitionTo(PlayerStateId.Die);
 
         // 1. 禁用玩家的物理、控制和视觉
         RB.velocity = Vector2.zero;
