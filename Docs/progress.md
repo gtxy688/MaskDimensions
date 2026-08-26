@@ -12,7 +12,7 @@
 **目标**：自研 2D 运动学物理（Kinematic2D）+ 维度渲染差异化
 **分支**：master
 **执行模式**：subagent-driven-development（AI 实现 → 任务审查 → 用户在 Unity 手动验收 → 验收通过才 commit）
-**当前进度**：任务 3/16 完成 ✅（任务 1、2 也已完成）
+**当前进度**：任务 4/16 完成 ✅（任务 1、2、3 也已完成）
 
 ## 二、任务状态表
 
@@ -21,8 +21,8 @@
 | 1 | 清理死代码 + 移除 PPv2 | ✅ 完成（已验收） | `4178633` |
 | 2 | Kinematic2D 核心框架 | ✅ 完成（已验收） | `f69178c` |
 | 3 | 维度系统（WorldState + 过滤器 + 事件迁移） | ✅ 完成（已验收） | `3e605bf`（+chore `04a2d08`） |
-| 4 | 玩家接入 KinematicBody（移除 Rigidbody2D 驱动） | ⏳ **下一个** | — |
-| 5 | 手感回归（土狼时间/跳缓冲/顿帧） | 待办 | — |
+| 4 | 玩家接入 KinematicBody（移除 Rigidbody2D 驱动） | ✅ 完成（已验收） | `912d704` |
+| 5 | 手感回归（土狼时间/跳缓冲/顿帧） | ⏳ **下一个** | — |
 | 6 | 斜坡（SlopeResolver） | 待办 | — |
 | 7 | 单向板 | 待办 | — |
 | 8 | 移动平台 | 待办 | — |
@@ -78,36 +78,51 @@
 
 **⚠️ 执行注意**：WorldState 是 SingletonMono **需要手动在场景挂载**（无挂载即 NRE——那是提醒信号）；PlayerController 的 `IsMaskActiveGlobally` 与静态事件在任务 4 才删除；事件签名禁止变更。
 
+### 任务 4：玩家接入 KinematicBody（`912d704`，30 文件）
+
+**交付**（方案 B 已由用户拍板）：
+- Player 保留 Kinematic Rigidbody2D 作**事件总线**（Awake 强制 Kinematic/零重力/`useFullKinematicContacts`），位移/重力/碰撞 100% 走自研 KinematicBody；`Velocity` + `SetVelocity` + FixedUpdate 重力积分；`DimensionCollisionFilter` 注入；地面/墙检测改读 `LastResult`；删除 `IgnoreLayerCollision`/`IsMaskActiveGlobally`/静态维度事件；理智事件保留；7 状态类适配（IdleState 补 PhysicsUpdate）
+- 事件迁移收尾：MaskObject/InteractiveTutorialHUD/SanityStatusHints/DimensionPortal/MaskPostProcessingManager 订阅迁 WorldState
+- PlayerConfigSO 增 `gravity=9.81`/`maxFallSpeed=20`；Player.prefab 加 KinematicBody 组件（guid `1e04ee79…`，config=PlayerRayConfig `cfa678e8…`）
+- 配置资产 `Assets/Resources/SO/` → `Assets/SO/` **保 GUID 搬家**（git 识别为 100% rename，引用不断）
+
+**验收调试（MCP 8092 接入实测，3 个回归全部修复）**：
+1. **穿越地面**：TotalGround 是 CompositeCollider2D（Outlines）——起点在轮廓内侧时 qStart 不生效，向下射线隧道到 y=−6 底部边框。修复：MoveVertically 脚底上探 + FixedUpdate 落地钳制 `Velocity.y=0`
+2. **陷阱不致死**：陷阱 RB=Kinematic，玩家改 Kinematic 后 Kinematic↔Kinematic 默认无接触回调。修复：`RB.useFullKinematicContacts=true`
+3. **异世界子弹仍命中**：移除 IgnoreLayerCollision 后 Trigger 回调失去维度门。修复：`Bullet.OnTriggerEnter2D` + 陷阱 `HandleTrapContact` 加维度门（异世界隐形物不生效）
+
+**⚠️ 调试教训（面试可用，详见 01-kinematic2d.md 硬约束）**：Composite Collider 2D（Outlines 几何）的内侧起点不被 `queriesStartInColliders=true` 视为命中——自研射线控制器遇复合碰撞体必须做"贴地表上探"防隧道；Kinematic↔Kinematic 接触需 FullKinematicContacts。
+
 ## 四、给新对话的交接说明
 
-> 从 **任务 4（玩家接入 KinematicBody）** 开始继续执行。以下信息必须传给新对话。
+> 从 **任务 5（手感回归）** 开始继续执行。以下信息必须传给新对话。
 
 ### 新对话必读文件（按顺序）
 1. `Docs/superpowers/plans/2026-08-24-mask-dimensions-deep-rework.md` —— 16 任务实施计划全文
 2. `.superpowers/sdd/2026-08-24-mask-dimensions-deep-rework/progress.md` —— 子代理执行账本（含任务状态、调试教训、全部裁定、产物位置）
-3. `.superpowers/sdd/2026-08-24-mask-dimensions-deep-rework/task-4-brief.md` —— 任务 4 简报（已含控制者补充需求 C1~C6，**与计划冲突处以简报为准**）
-4. `Docs/architecture/01-kinematic2d.md` + `Docs/architecture/05-player-fsm.md` —— 任务 4 架构文档
-5. `Docs/tests/01-kinematic2d-test.md` + `Docs/tests/05-player-fsm-test.md` —— 任务 4 验收清单
+3. `Docs/architecture/01-kinematic2d.md` + `Docs/architecture/05-player-fsm.md` —— 任务 5 相关架构文档
+4. `Docs/tests/01-kinematic2d-test.md`（土狼/跳缓冲/顿帧条目）+ `Docs/tests/05-player-fsm-test.md`（输入手感/时间系统回归）—— 任务 5 验收清单
 
-### 任务 4 要点（已确认的裁定，用户已拍板**方案 B**）
-- **方案 B（关键架构决策）**：Player **保留** Rigidbody2D 作"事件总线"（Kinematic、gravityScale=0、velocity 恒零、代码零 `RB.velocity` 引用）——Unity 2D 触发/碰撞回调要求碰撞对至少一方有 RB2D，房间/传送/通关/教学/子弹/陷阱 7 个系统依赖它，否则全部失效（且与"子弹保留不改"冲突）。位移/重力/碰撞 100% 走自研 KinematicBody。验收文档前置"无 Rigidbody2D 组件"措辞需随本次改为"无 Rigidbody2D 驱动"。
-- 重力缺口：PlayerConfigSO 增 `gravity=9.81f` + `maxFallSpeed=20f`；PlayerController 增 `Velocity` 字段，FixedUpdate 先积分重力再跑状态机；`SetVelocity(v)` = 字段赋值 + `KinematicBody.Move(v)`
-- 事件迁移收尾：删 PlayerController 静态事件/字段 → 5 个文件订阅与读取迁 WorldState（MaskObject/InteractiveTutorialHUD/SanityStatusHints/DimensionPortal/MaskPostProcessingManager），文件清单扩至 12 个
-- Player 在 **Prefab**（`Assets/Resources/Prefabs/Player.prefab`，layer 8，RB 当前 Dynamic）→ Awake 防御性强制 Kinematic + 零重力
-- 状态类 `RB.velocity` 引用 → `SetVelocity/Velocity`；`RB.simulated` 开关**保留**（事件总线冻结）
-- 理智事件（OnSanityChanged 等）保留不动；`OnCollisionEnter2D` 陷阱检测、Bullet、Room 系列零改动
+### 任务 5 要点（已确认的裁定）
+- **计划本体**：验证计时器（CoyoteTime/JumpBuffer）与新物理兼容（不改逻辑，数值走 PlayerConfigSO）；验证顿帧/预览兼容（KinematicBody.Move 用 `Time.deltaTime` → timeScale=0 时自然冻结 ✓ 正确行为）
+- **遗留事项一并处理**：
+  - 缺陷7（账本）：WorldState 是 DontDestroyOnLoad 单例，菜单→GameScene 重进可能残留上一局维度 → 玩家 Start 时 `WorldState.Instance.SetWorld(false)` 同步（初始必为表世界）
+  - 审查 Minor：`Velocity.y` 落地不归零 → **已在任务 4 实装**（FixedUpdate 落地钳制）；混合时间步（Update 时序 SetVelocity 用 frame deltaTime）→ **裁定不改**（顿帧需要 deltaTime 冻结，保持现状并记录理由）；BOM 噪音、MaskSwitchState 注释括号 → 可不处理
+- 若用户反馈跳跃/下落手感与改造前有感知差异：调 `PlayerConfigSO` 的 gravity/maxFallSpeed（基线 9.81/20，资产在 `Assets/SO/PlayerSO.asset`）
+- 文档维护（控制器做，不进实现子代理）：05-player-fsm.md 第 34 行事件归属改为 WorldState（任务 3 后文档滞后）；01-kinematic2d.md 补"复合碰撞体内侧起点隧道"硬约束（任务 4 调试教训）
 
 ### 执行须知
 - **工作流**：AI 实现 → 附验收清单 → 用户在 Unity 手动验收 → 验收通过才 commit（禁止 AI 自行提交）
 - commit 用中文规范（type 英文 + scope/description 中文）
-- **MCP 坑（如果要用来调试）**：8092 桥是 ARPG 项目的（连本项目不稳）；本项目自己的桥是 8091（未启动）。MCP 适合配置检查/静态查询；Play 模式实时观察不可靠，**最终验收以用户手动 Play 为准**
+- **MCP（8092 桥本会话已实测可用）**：桥 8092 可同时连多个 Unity 实例，需 `set_active_instance` 选 `Mask Dimensions@5092658667197165`（hash 前缀 `5092` 亦可）；Play 模式 execute_code 间歇性可用；**最终验收以用户手动 Play 为准**
 - 删任何脚本前，检查场景 GUID 引用（任务 1 的教训：会留 Missing Script）
-- 测试脚手架（PhysTest 等）验收后删除、不提交
+- 测试脚手架（PhysTest 等）验收后删除、不提交；`.mcp-schema.json` 为 MCP 产物，不提交
 - 生成审查包必须用 UTF-8 编码（任务 2 的 I3 教训：默认编码会乱码）
 
 ## 五、待办
 
 - [x] 任务 3（维度系统，`3e605bf`）
-- [ ] 任务 4~16 按计划执行（新对话接手）
+- [x] 任务 4（玩家接入 KinematicBody，`912d704`）
+- [ ] 任务 5~16 按计划执行（新对话接手）
 - [ ] 每完成一任务更新本文件和 `.superpowers/sdd/.../progress.md`
 - [ ] 全 16 任务完成后：最终代码审查 + finishing-a-development-branch
