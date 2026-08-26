@@ -28,7 +28,7 @@
 | 8 | 移动平台 | 待办（同顺延） | — |
 | 9 | 渲染线1：双 Volume 维度过渡 | ✅ 完成（自主验收通过） | `bcf3b40` |
 | 10 | 渲染线2：URP 2D Light | 待办 | — |
-| 11 | 渲染线3：自写 Renderer Feature 转场 | 待办 | — |
+| 11 | 渲染线3：自写 Renderer Feature 转场 shader | ⏳ 实现完成（待 Play 视觉确认） | 即将提交 |
 | 12 | RoomConfigSO 扩展 | 待办 | — |
 | 13 | 关卡 L1 重做 | 待办 | — |
 | 14 | 关卡 L2 重做 | 待办 | — |
@@ -146,6 +146,27 @@
 ### 任务 9 已完成（2026-08-27，用户委托 AI 自主验收通过）
 - 实现 = `Assets/Scripts/Rendering/DimensionVolumeController.cs`（计划逐字）+ 双 Profile（**全部参数 overrideState=true**）+ 双 Volume 场景接线 + 移除旧 MPP（组件两场景已清、脚本已删，guid 无残留引用）。
 - 提交号见任务表；**坑与教训见任务 9 详情段（三坑：overrideState / Play 中改资产不生效 / 验证维度要对）**。
+
+### 任务 11：渲染线3——自写 Renderer Feature 转场 shader（实现完成，待 Play 确认）
+
+**交付**（`Assets/Scripts/Rendering/` + `Assets/Shaders/`）：
+- `DimensionTransition.shader`：Hidden shader，**扫屏（光边推进+压暗+亮带）与撕裂（行块错位+裂缝亮线）双模式**，`_Progress/_Mode/_Direction/_Width/_BlockCount/_Amplitude/_Darken` 参数化
+- `DimensionTransitionPass.cs`：ScriptableRenderPass（BeforeRenderingPostProcessing），老式 `cmd.Blit` + `GetTemporaryRT` 双向拷贝
+- `DimensionTransitionFeature.cs`：ScriptableRendererFeature，**静态 Progress 桥**（Feature 是资产对象非场景对象）+ `ModeOverride`
+- `DimensionTransitionPlayer.cs`：场景组件，订阅 WorldState 事件 → 协程驱动进度（unscaledDeltaTime，0.4s，撕裂默认）
+- 接线：RendererData 资产挂 Feature + GameScene 挂 Player 组件
+
+**修正简报原稿 3 个 bug**（面试可讲）：
+1. blit 全屏顶点**已是裁剪空间**，`TransformObjectToHClip` 会双重变换 → 直接透传 positionCS
+2. **同一 RT 原地 Blit 未定义**，必须 源→临时RT→源
+3. `FindObjectOfType<Feature>` **找不到资产对象**（Feature 在 RendererData 上）→ 静态进桥；且渲染演出独立 Player 组件（不进 PlayerController）
+
+**调试坑（已记账本）**：
+- Blitter.BlitCameraTexture 在编辑模式手动渲染链输出失败（全黑）→ 换老式 `cmd.Blit` + `GetTemporaryRT` 通过
+- Blitter 约定采样 `_BlitTexture`，老式 cmd.Blit 约定 `_MainTex`（两者不通用）
+- 编辑模式手动 `Camera.Render()` 的自定义 blit **源纹理为空**（非 GameView 渲染链的怪癖）；链路用 UV 渐变测试证明通 → **最终视觉以用户 Play 为准**
+
+**验收点**：Play → 按 J → 撕裂/扫屏转场播放一次（0.4s）、新世界显现有"碎裂重组/光幕扫过"感、无残留、顿帧期间继续。
 
 ### 任务 10 要点（渲染线 2：URP 2D Light）
 - 目标：表世界明亮（Global Light 2D 高亮度）、里世界昏暗 + 局部光源（玩家持灯挂子物体），光照切换与维度事件同步。**禁止"后处理调亮度"当光照**（03-rendering 硬约束 5）。
