@@ -889,6 +889,10 @@ PrefabInstance:
       propertyPath: targetRoom
       value: 
       objectReference: {fileID: 2040392573}
+    - target: {fileID: 6155157441700711417, guid: 294e0e338079c8c4cb2094ab8590f501, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: -0.61
+      objectReference: {fileID: 0}
     - target: {fileID: 8204631187879139161, guid: 294e0e338079c8c4cb2094ab8590f501, type: 3}
       propertyPath: m_Name
       value: Room_1_Tutorial
