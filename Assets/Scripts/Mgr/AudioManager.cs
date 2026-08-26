@@ -36,14 +36,14 @@ public class AudioManager : SingletonMono<AudioManager>
             bgmSourceMenu.Play();
         }
 
-        // 3. 订阅世界切换事件（进入 GameScene 后才会有 PlayerController 触发）
-        PlayerController.OnMaskStateChanged += SwitchBGMDimension;
+        // 3. 订阅世界切换事件（进入 GameScene 后才会有 WorldState 触发）
+        WorldState.OnMaskStateChanged += SwitchBGMDimension;
     }
 
     private void OnDestroy()
     {
         // 取消订阅防泄漏
-        PlayerController.OnMaskStateChanged -= SwitchBGMDimension;
+        WorldState.OnMaskStateChanged -= SwitchBGMDimension;
     }
 
     /// <summary>

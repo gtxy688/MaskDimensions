@@ -14,6 +14,9 @@ public class MaskObject : MonoBehaviour
     [Tooltip("勾选 = 里世界显示（戴面具时）；不勾选 = 表世界显示（未戴面具时）")]
     [SerializeField] private bool showWhenMaskActive = true;
 
+    /// <summary>当前物体所属维度（供碰撞过滤器查询）。</summary>
+    public bool ShowWhenMaskActive => showWhenMaskActive;
+
     // --- Tilemap 相关（可选） ---
     [SerializeField] private Tilemap tilemap;
     [SerializeField] private TilemapRenderer tilemapRenderer;
@@ -45,16 +48,16 @@ public class MaskObject : MonoBehaviour
 
     private void OnEnable()
     {
-        PlayerController.OnMaskStateChanged += HandleMaskStateChanged;
-        PlayerController.OnMaskPreviewChanged += HandleMaskPreviewChanged;
+        WorldState.OnMaskStateChanged += HandleMaskStateChanged;
+        WorldState.OnMaskPreviewChanged += HandleMaskPreviewChanged;
         // 每次激活（包括对象池复用）都更新一次显隐，与被回收前的状态同步
         SetActiveState(PlayerController.IsMaskActiveGlobally);
     }
 
     private void OnDisable()
     {
-        PlayerController.OnMaskStateChanged -= HandleMaskStateChanged;
-        PlayerController.OnMaskPreviewChanged -= HandleMaskPreviewChanged;
+        WorldState.OnMaskStateChanged -= HandleMaskStateChanged;
+        WorldState.OnMaskPreviewChanged -= HandleMaskPreviewChanged;
     }
 
     /// <summary>

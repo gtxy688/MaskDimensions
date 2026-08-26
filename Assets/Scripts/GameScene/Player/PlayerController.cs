@@ -344,6 +344,7 @@ public class PlayerController : MonoBehaviour
             if (!previewGhostsShown && previewHoldTimer >= config.previewHoldThreshold)
             {
                 previewGhostsShown = true;
+                WorldState.Instance.SetPreview(true);
                 OnMaskPreviewChanged?.Invoke(true);
             }
         }
@@ -409,6 +410,7 @@ public class PlayerController : MonoBehaviour
         isPreviewing = false;
         Time.timeScale = 1f;
         Time.fixedDeltaTime = 0.02f;
+        WorldState.Instance.SetPreview(false);
         OnMaskPreviewChanged?.Invoke(false);
     }
 
@@ -428,7 +430,7 @@ public class PlayerController : MonoBehaviour
         Time.timeScale = 0f;
 
         // 3. 执行底层物理和事件切换
-        isMaskActive = !isMaskActive;
+        isMaskActive = WorldState.Instance.SwitchWorld();
         IsMaskActiveGlobally = isMaskActive;
         UpdateLayerCollisions();
         OnMaskStateChanged?.Invoke(isMaskActive);
@@ -490,6 +492,7 @@ public class PlayerController : MonoBehaviour
         bool wasMaskActive = isMaskActive;
         isMaskActive = false;
         IsMaskActiveGlobally = false;
+        WorldState.Instance.SetWorld(false);
         UpdateLayerCollisions();
         if (wasMaskActive)
             OnMaskStateChanged?.Invoke(false);
@@ -642,6 +645,7 @@ public class PlayerController : MonoBehaviour
         currentSanity = config.maxSanity;
         isMaskActive = false;
         IsMaskActiveGlobally = false;
+        WorldState.Instance.SetWorld(false);
         UpdateLayerCollisions();
         OnMaskStateChanged?.Invoke(false);
 
