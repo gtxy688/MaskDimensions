@@ -160,6 +160,7 @@ GameObject:
   - component: {fileID: 4714318956879940107}
   - component: {fileID: 8906830532155080056}
   - component: {fileID: 8885433543740985269}
+  - component: {fileID: 6935550245190474622}
   m_Layer: 8
   m_Name: Player
   m_TagString: Player
@@ -273,16 +274,6 @@ MonoBehaviour:
   faceMaskObject: {fileID: 507925107269088966}
   switchVFXPrefab: {fileID: 2188641679910793923, guid: 037c23ce07b8cc6429ddd7707dbe8168, type: 3}
   config: {fileID: 11400000, guid: 6427a9dd5563539448a4c436f1196f4a, type: 2}
-  groundCheckPoint: {fileID: 2714760583637469316}
-  groundCheckSize: {x: 0.71, y: 0.1}
-  groundLayer:
-    serializedVersion: 2
-    m_Bits: 640
-  wallCheckPoint: {fileID: 3418151228709697218}
-  wallCheckSize: {x: 0.06, y: 1.34}
-  isMaskActive: 0
-  maskLayerName: NewDimension
-  oldWorldLayerName: OldDimension
   currentSanity: 100
   isPreviewing: 0
   deathVFXPrefab: {fileID: 79351909301875431, guid: c668b8f637beff2469ecff32c03be5a4, type: 3}
@@ -361,3 +352,16 @@ BoxCollider2D:
   serializedVersion: 2
   m_Size: {x: 0.6913873, y: 1.5627353}
   m_EdgeRadius: 0
+--- !u!114 &6935550245190474622
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7188836295803003887}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1e04ee79ea0c2c542bf7f0789da67986, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  config: {fileID: 11400000, guid: cfa678e8518e9174dba7389ad5427046, type: 2}

@@ -134,6 +134,25 @@ public class KinematicBody : MonoBehaviour
         float directionY = Mathf.Sign(moveAmount.y);
         float rayLength = Mathf.Abs(moveAmount.y) + config.skinWidth;
 
+        // 复合碰撞体（Outlines 几何）缺陷应对：起点位于轮廓内侧时，即使 queriesStartInColliders=true，
+        // 向下射线也不会报告"起点在内"的命中，而是直接穿透空心区域打到对侧外轮廓（实测：出生点脚底嵌入
+        // 复合地面上表面 2cm 时，向下射线一路隧道到底部 y=-6 的边框——即"穿越地面、被底部边框接住"现象）。
+        // 解法：向下移动前先沿脚底向上微探 2×skinWidth——若紧贴一张"过滤器放行"的表面（含维度过滤），
+        // 判定为贴地表（出生嵌入/贴地微陷场景），改为微上推恢复皮肤间隙并直接返回，杜绝隧道下落。
+        if (directionY == -1f)
+        {
+            Vector2 probeOrigin = new Vector2(transform.position.x, boxCollider.bounds.min.y + 0.002f);
+            RaycastHit2D upHit = Physics2D.Raycast(probeOrigin, Vector2.up, config.skinWidth * 2f, config.collisionMask);
+            if (upHit.collider != null && upHit.collider != boxCollider &&
+                (filter == null || filter.Allow(upHit)))
+            {
+                result.IsGrounded = true;
+                result.HitCeiling = false;
+                if (moveAmount.y < 0f) moveAmount.y = config.skinWidth; // 微上推，下一帧正常落地
+                return moveAmount;
+            }
+        }
+
         for (int i = 0; i < config.verticalRayCount; i++)
         {
             // 为什么 + moveAmount.x：垂直射线原点跟随水平修正后的位置，防止贴墙时漏检

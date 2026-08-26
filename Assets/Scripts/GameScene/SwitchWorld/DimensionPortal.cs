@@ -31,14 +31,14 @@ public class DimensionPortal : MonoBehaviour
 
     private void OnEnable()
     {
-        PlayerController.OnMaskPreviewChanged += HandleMaskPreviewChanged;
-        PlayerController.OnMaskStateChanged += HandleMaskStateChanged;
+        WorldState.OnMaskPreviewChanged += HandleMaskPreviewChanged;
+        WorldState.OnMaskStateChanged += HandleMaskStateChanged;
     }
 
     private void OnDisable()
     {
-        PlayerController.OnMaskPreviewChanged -= HandleMaskPreviewChanged;
-        PlayerController.OnMaskStateChanged -= HandleMaskStateChanged;
+        WorldState.OnMaskPreviewChanged -= HandleMaskPreviewChanged;
+        WorldState.OnMaskStateChanged -= HandleMaskStateChanged;
     }
 
     private void LateUpdate()

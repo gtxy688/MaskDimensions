@@ -43,7 +43,7 @@ public class MaskObject : MonoBehaviour
 
     private void Start()
     {
-        SetActiveState(PlayerController.IsMaskActiveGlobally);
+        SetActiveState(WorldState.Instance.IsMaskActive);
     }
 
     private void OnEnable()
@@ -51,7 +51,12 @@ public class MaskObject : MonoBehaviour
         WorldState.OnMaskStateChanged += HandleMaskStateChanged;
         WorldState.OnMaskPreviewChanged += HandleMaskPreviewChanged;
         // 每次激活（包括对象池复用）都更新一次显隐，与被回收前的状态同步
-        SetActiveState(PlayerController.IsMaskActiveGlobally);
+        // 为什么判空：WorldState.Instance 在 WorldState.Awake 才赋值，而 Awake 跨物体顺序未定义——
+        // 对象池 Awake 预热会把带 MaskObject 的子弹 Instantiate 出来，其 OnEnable 可能先于 WorldState.Awake 执行。
+        // 此时跳过首帧同步是安全的：场景挂载物体由 Start（晚于所有 Awake）兜底；池化激活必然发生在
+        // WorldState 就绪之后（其 Awake 已执行）；上方订阅本身不依赖 Instance。
+        if (WorldState.Instance != null)
+            SetActiveState(WorldState.Instance.IsMaskActive);
     }
 
     private void OnDisable()
@@ -81,7 +86,7 @@ public class MaskObject : MonoBehaviour
 
     private void HandleMaskPreviewChanged(bool isPreviewing)
     {
-        if (!PlayerController.IsMaskActiveGlobally)
+        if (!WorldState.Instance.IsMaskActive)
         {
             if (isPreviewing)
             {

@@ -1,4 +1,3 @@
-using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -22,7 +21,10 @@ public enum PlayerStateId
 /// 玩家主控制器（Context 环境类）。
 /// 负责维护组件依赖、轮询输入数据，并驱动状态机运行。
 /// </summary>
-[RequireComponent(typeof(Rigidbody2D))]
+// 三合一 RequireComponent（方案 B，C1）：RB2D 仅作 Unity 2D 回调事件源——OnTrigger/OnCollision
+// 要求碰撞对至少一方有 RB2D（房间/传送/通关/教学/子弹/陷阱 7 个系统零改动依赖它）；
+// 位移/重力/碰撞检测/碰撞响应 100% 走自研 KinematicBody。
+[RequireComponent(typeof(KinematicBody), typeof(BoxCollider2D), typeof(Rigidbody2D))]
 public class PlayerController : MonoBehaviour
 {
     public PlayerStateMachine StateMachine { get; private set; }
@@ -31,6 +33,8 @@ public class PlayerController : MonoBehaviour
     private Dictionary<PlayerStateId, BaseState> stateTable;
 
     public Rigidbody2D RB { get; private set; }
+    public KinematicBody KinematicBody { get; private set; }
+    private ICollisionFilter collisionFilter;
     public Animator Anim { get; private set; }
 
     [Header("换装与特效")]
@@ -43,33 +47,16 @@ public class PlayerController : MonoBehaviour
     public float JumpForce => config.jumpForce;
     public float MoveInput { get; private set; }
 
-    [SerializeField] private Transform groundCheckPoint;
-    [SerializeField] private Vector2 groundCheckSize = new Vector2(0.5f, 0.1f);
-    [SerializeField] private LayerMask groundLayer;
-
-    [Header("墙壁检测")]
-    [SerializeField] private Transform wallCheckPoint;
-    [SerializeField] private Vector2 wallCheckSize = new Vector2(0.1f, 0.6f);
+    /// <summary>状态机可见/可写的当前速度（C2：状态字段替代旧刚体速度读取）。</summary>
+    public Vector2 Velocity { get; private set; }
 
     public float CoyoteTimeCounter { get; private set; }
     public float JumpBufferCounter { get; private set; }
     public bool IsGrounded { get; private set; }
 
-    // 记录玩家当前是否戴着面具
-    public bool isMaskActive = false;
-
-
-    // 在 PlayerController 中添加一个公开的静态只读属性,供外界访问玩家是戴着面具
-    public static bool IsMaskActiveGlobally { get; private set; }
+    // 维度状态不再由 PlayerController 持有/镜像：一律读 WorldState.Instance.IsMaskActive（C3）。
 
     [Header("面具与理智系统")]
-    //使用可配置的图层名来控制物理忽略
-    [SerializeField] private string maskLayerName = "NewDimension";
-    [SerializeField] private string oldWorldLayerName = "OldDimension";
-    int playerLayer;
-    int newLayer;
-    int oldLayer;
-   
     public float currentSanity = 100f;
 
     // 定义一个委托事件，用来广播理智值的变化 (当前值, 最大值)
@@ -88,12 +75,8 @@ public class PlayerController : MonoBehaviour
 
     public bool isDead = false;
 
-    // 事件广播
-    public static event Action<bool> OnMaskStateChanged;
-    public static event Action<bool> OnMaskPreviewChanged;
-
-    //用于显示ui提示的事件
-    //理智不足无法切换世界时广播（用于 SanityStatusHints 显示提示#5）
+    // 事件广播（维度状态事件 OnMaskStateChanged/OnMaskPreviewChanged 已迁 WorldState，本类仅保留理智相关事件）
+    // 理智不足无法切换世界时广播（用于 SanityStatusHints 显示提示#5）
     public static event System.Action OnInsufficientSanity;
 
     // 理智耗尽强制弹出时广播（用于 ToastMessage 显示）
@@ -104,17 +87,25 @@ public class PlayerController : MonoBehaviour
 
     private void Awake()
     {
-        // 提前缓存 Layer ID
-        playerLayer = LayerMask.NameToLayer("Player");
-        newLayer = LayerMask.NameToLayer(maskLayerName);
-        oldLayer = LayerMask.NameToLayer(oldWorldLayerName);
-        IsMaskActiveGlobally = isMaskActive;
-        UpdateLayerCollisions();  // 添加这一行，根据初始面具状态设置碰撞忽略
-        StateMachine = new PlayerStateMachine();
+        // RB2D 仅作 Unity 回调事件源（OnTrigger/OnCollision 需要），不参与任何求解：
+        // 强制 Kinematic + 零重力，防止预制体/实例若仍是 Dynamic 时被引擎重力拖走（方案 B，C1）。
         RB = GetComponent<Rigidbody2D>();
+        RB.bodyType = RigidbodyType2D.Kinematic;
+        RB.gravityScale = 0f;
+        // 陷阱等物体是 Kinematic 刚体，而玩家事件总线也是 Kinematic：默认 Kinematic↔Kinematic 不产生
+        // 接触回调（陷阱不触发死亡是改造后的实测回归）。Full Kinematic Contacts 让本总线参与全部刚体接触。
+        RB.useFullKinematicContacts = true;
+
+        // 自研运动学物理接入 + 维度碰撞过滤器注入（射线级过滤，替代 IgnoreLayerCollision）
+        KinematicBody = GetComponent<KinematicBody>();
+        collisionFilter = new DimensionCollisionFilter();
+        KinematicBody.SetFilter(collisionFilter);
+
         Anim = GetComponent<Animator>();
         currentSanity = config.maxSanity;
+
         // 初始化状态字典注册表
+        StateMachine = new PlayerStateMachine();
         stateTable = new Dictionary<PlayerStateId, BaseState>
         {
             { PlayerStateId.Idle, new IdleState(this, StateMachine) },
@@ -145,7 +136,15 @@ public class PlayerController : MonoBehaviour
     }
     private void FixedUpdate()
     {
-        StateMachine.CurrentState?.PhysicsUpdate();
+        // 重力积分（替代 Rigidbody2D GravityScale，方案 B 下 RB 不参与求解）：
+        // 先积分再让状态机决策/改写，跳跃初速度才能覆盖本帧重力。
+        Velocity = new Vector2(Velocity.x, Mathf.Max(Velocity.y - config.gravity * Time.fixedDeltaTime, -config.maxFallSpeed));
+        StateMachine.CurrentState?.PhysicsUpdate(); // 状态内调用 player.SetVelocity(...)
+
+        // 落地钳制：贴地时清除向下速度。为什么必要——若放任速度累积到 -maxFallSpeed，
+        // 站定期间每帧都会带大位移反复撞击地面，放大复合碰撞体"起点在内侧隧道穿透"风险（见 KinematicBody.MoveVertically 上探）。
+        if (KinematicBody.LastResult.IsGrounded && Velocity.y < 0f)
+            Velocity = new Vector2(Velocity.x, 0f);
     }
 
     private void Update()
@@ -157,7 +156,7 @@ public class PlayerController : MonoBehaviour
         if (isPreviewing)
         {
             MoveInput = 0f;
-            // 如果你的跳跃按键是 Space，你也可以在这里把 rb.velocity 的 x 设为 0，防止滑动
+            // 如需在定身时完全停住（防水平滑动），可在此 SetVelocity(new Vector2(0f, Velocity.y))
         }
 
         // 处理面具逻辑（透视、切换、理智流逝）
@@ -205,6 +204,13 @@ public class PlayerController : MonoBehaviour
         JumpBufferCounter = 0f;
     }
 
+    /// <summary>物理入口：状态机把期望速度交给 KinematicBody。为什么统一入口：物理层只认速度，不认"跳跃/移动"语义；字段即状态机可见的当前速度。</summary>
+    public void SetVelocity(Vector2 velocity)
+    {
+        Velocity = velocity;
+        KinematicBody.Move(velocity);
+    }
+
     /// <summary>
     /// 执行基于标识符的状态转换。
     /// 保护私有数据,让其他State只需要存储id就能切换状态
@@ -236,77 +242,24 @@ public class PlayerController : MonoBehaviour
     }
 
     /// <summary>
-    /// 基于物理引擎的 OverlapBox 碰撞检测。
-    /// 用于判定角色是否与地面层发生交叠。
-    /// 异界路面虽然同时在 groundLayer 中，但当前世界禁止的层会被显式排除。
+    /// 地面检测：直接读 KinematicBody 上一帧解算结果（LastResult.IsGrounded）。
+    /// 为什么不用 OverlapBox：地面事实由自研运动学每帧射线解算产生，状态机只消费结果，
+    /// 不再自行开第二次物理查询（AGENTS.md 约束 3）。
     /// </summary>
     private void CheckGrounded()
     {
-        if (groundCheckPoint != null)
-        {
-            Collider2D hit = Physics2D.OverlapBox(groundCheckPoint.position, groundCheckSize, 0f, groundLayer);
-            if (hit != null)
-            {
-                // 显式排除当前世界不应踩到的层（与 IgnoreLayerCollision 双重保险）
-                int hitLayer = hit.gameObject.layer;
-                if (!isMaskActive && hitLayer == newLayer)
-                    IsGrounded = false;
-                else if (isMaskActive && hitLayer == oldLayer)
-                    IsGrounded = false;
-                else
-                    IsGrounded = true;
-            }
-            else
-            {
-                IsGrounded = false;
-            }
-        }
-    }
-
-    /// <summary>
-    /// 对外暴露的刷新地面检测接口。
-    /// 在变更图层或其他可能影响碰撞查询的操作后可调用以立即更新 IsGrounded。
-    /// </summary>
-    public void RefreshGrounded()
-    {
-        CheckGrounded();
+        IsGrounded = KinematicBody.LastResult.IsGrounded;
     }
 
     /// <summary>
     /// 检测角色在指定水平方向上是否贴着墙壁。
-    /// direction > 0 检测右侧，< 0 检测左侧。
+    /// direction &gt; 0 检测右侧，&lt; 0 检测左侧。
+    /// 读 KinematicBody 上一帧水平解算结果：向该方向移动被阻挡时对应的 HitLeft/HitRight 为真。
     /// </summary>
     public bool IsTouchingWall(float direction)
     {
-        if (direction == 0 || wallCheckPoint == null) return false;
-
-        Vector2 dir = Vector2.right * Mathf.Sign(direction);
-        Vector2 checkPos = (Vector2)wallCheckPoint.position + dir * 0.05f;
-
-        Collider2D hit = Physics2D.OverlapBox(checkPos, wallCheckSize, 0f, groundLayer);
-        if (hit == null) return false;
-
-        // 双重世界排除
-        int hitLayer = hit.gameObject.layer;
-        if (!isMaskActive && hitLayer == newLayer) return false;
-        if (isMaskActive && hitLayer == oldLayer) return false;
-
-        return true;
-    }
-
-    //绘制一个红色的框，供调试
-    private void OnDrawGizmosSelected()
-    {
-        if (groundCheckPoint != null)
-        {
-            Gizmos.color = Color.red;
-            Gizmos.DrawWireCube(groundCheckPoint.position, groundCheckSize);
-        }
-        if (wallCheckPoint != null)
-        {
-            Gizmos.color = Color.blue;
-            Gizmos.DrawWireCube(wallCheckPoint.position, wallCheckSize);
-        }
+        if (direction == 0) return false;
+        return direction < 0f ? KinematicBody.LastResult.HitLeft : KinematicBody.LastResult.HitRight;
     }
 
     /// <summary>
@@ -321,7 +274,7 @@ public class PlayerController : MonoBehaviour
         }
 
         // ---- 按下 J：进入慢动作预览模式 ----
-        if (Input.GetKeyDown(KeyCode.J) && !isMaskActive)
+        if (Input.GetKeyDown(KeyCode.J) && !WorldState.Instance.IsMaskActive)
         {
             if(currentSanity < config.minSanityToSwitch)
             {
@@ -345,7 +298,6 @@ public class PlayerController : MonoBehaviour
             {
                 previewGhostsShown = true;
                 WorldState.Instance.SetPreview(true);
-                OnMaskPreviewChanged?.Invoke(true);
             }
         }
 
@@ -371,7 +323,7 @@ public class PlayerController : MonoBehaviour
                     StartCoroutine(ExecuteMaskSwitchWithHitlag());
                 }
             }
-            else if (isMaskActive)
+            else if (WorldState.Instance.IsMaskActive)
             {
                 // 离开里世界不需要理智检查（防止被困）
                 StartCoroutine(ExecuteMaskSwitchWithHitlag());
@@ -379,7 +331,7 @@ public class PlayerController : MonoBehaviour
         }
 
         // 理智流逝机制
-        if (isMaskActive)
+        if (WorldState.Instance.IsMaskActive)
         {
             currentSanity -= config.activeSanityCostRate * Time.deltaTime;
 
@@ -411,7 +363,6 @@ public class PlayerController : MonoBehaviour
         Time.timeScale = 1f;
         Time.fixedDeltaTime = 0.02f;
         WorldState.Instance.SetPreview(false);
-        OnMaskPreviewChanged?.Invoke(false);
     }
 
     /// <summary>
@@ -429,16 +380,13 @@ public class PlayerController : MonoBehaviour
         // 2. 瞬间画面定格营造力量感
         Time.timeScale = 0f;
 
-        // 3. 执行底层物理和事件切换
-        isMaskActive = WorldState.Instance.SwitchWorld();
-        IsMaskActiveGlobally = isMaskActive;
-        UpdateLayerCollisions();
-        OnMaskStateChanged?.Invoke(isMaskActive);
+        // 3. 执行维度切换（翻转 + 广播由 WorldState 内部完成）
+        WorldState.Instance.SwitchWorld();
 
         // 4. 控制脸上纸娃娃面具的显隐
         if (faceMaskObject != null)
         {
-            faceMaskObject.SetActive(isMaskActive);
+            faceMaskObject.SetActive(WorldState.Instance.IsMaskActive);
         }
 
         // 5.停顿 0.15 秒（不受 Time.timeScale 影响的真实时间）
@@ -447,20 +395,6 @@ public class PlayerController : MonoBehaviour
         // 6. 恢复时间，动量完美继承
         Time.timeScale = 1f;
         Time.fixedDeltaTime = 0.02f;
-    }
-
-    /// <summary>
-    /// 更新物理引擎的图层碰撞忽略
-    /// </summary>
-    private void UpdateLayerCollisions()
-    {
-        if (playerLayer == -1) return;
-
-        if (newLayer != -1)
-            Physics2D.IgnoreLayerCollision(playerLayer, newLayer, !isMaskActive);
-
-        if (oldLayer != -1)
-            Physics2D.IgnoreLayerCollision(playerLayer, oldLayer, isMaskActive);
     }
 
     /// <summary>
@@ -474,8 +408,8 @@ public class PlayerController : MonoBehaviour
         // 传送玩家
         transform.position = spawnPoint.position;
 
-        // 重置物理
-        RB.velocity = Vector2.zero;
+        // 重置物理（RB 仅作事件总线，位移归零走自研入口）
+        SetVelocity(Vector2.zero);
         RB.simulated = true;
 
         // 重置动画和显隐
@@ -488,14 +422,8 @@ public class PlayerController : MonoBehaviour
         isPreviewing = false;
         currentSanity = config.maxSanity;
 
-        // 摘下面具——只在之前确实戴着时广播事件，避免无谓的顿帧
-        bool wasMaskActive = isMaskActive;
-        isMaskActive = false;
-        IsMaskActiveGlobally = false;
+        // 摘下面具——SetWorld 内部等值静默（未戴面具则直接返回不广播），无需旧 wasMaskActive 守卫
         WorldState.Instance.SetWorld(false);
-        UpdateLayerCollisions();
-        if (wasMaskActive)
-            OnMaskStateChanged?.Invoke(false);
 
         // 重置时间缩放（取消预览残留）
         Time.timeScale = 1f;
@@ -526,10 +454,7 @@ public class PlayerController : MonoBehaviour
     {
         if (isDead) return;
         TransitionTo(PlayerStateId.Hit);
-        if (RB != null)
-        {
-            RB.velocity = knockbackForce;
-        }
+        SetVelocity(knockbackForce);
     }
 
     // 当角色和任何物体发生物理碰撞时，Unity 会自动调用这个方法
@@ -537,9 +462,27 @@ public class PlayerController : MonoBehaviour
     {
         // 检查撞到的物体是不是贴着 "Trap" 标签
         if (collision.gameObject.CompareTag("Trap"))
-        {
-            Die();
-        }
+            HandleTrapContact(collision.gameObject);
+    }
+
+    // Trigger 型陷阱兜底（实心陷阱走 OnCollisionEnter2D；若关卡用 Trigger 陷阱则走这里）
+    private void OnTriggerEnter2D(Collider2D other)
+    {
+        if (other.CompareTag("Trap"))
+            HandleTrapContact(other.gameObject);
+    }
+
+    /// <summary>
+    /// 陷阱接触统一处理。为什么带维度门：陷阱是 MaskObject（属于某一世界），旧方案靠
+    /// IgnoreLayerCollision 让"异世界玩家"免疫其碰撞；任务 4 移除该 API 后，回调级命中
+    /// 必须显式判定——异世界陷阱对玩家不可见也不可致死（02-dimension：回调级维度过滤在业务代码补）。
+    /// </summary>
+    private void HandleTrapContact(GameObject trap)
+    {
+        MaskObject mask = trap.GetComponent<MaskObject>();
+        if (mask != null && WorldState.Instance.IsMaskActive != mask.ShowWhenMaskActive)
+            return; // 异世界陷阱：当前世界对它不可见，不致死
+        Die();
     }
 
     /// <summary>
@@ -565,7 +508,7 @@ public class PlayerController : MonoBehaviour
         sr.color = new Color(originalColor.r, originalColor.g, originalColor.b, 0f);
         if (faceMaskObject != null)
             faceMaskObject.SetActive(false);
-        RB.velocity = Vector2.zero;
+        SetVelocity(Vector2.zero);
         RB.simulated = false;
         Anim.enabled = false;
 
@@ -589,7 +532,7 @@ public class PlayerController : MonoBehaviour
         RB.simulated = true;
         Anim.enabled = true;
         if (faceMaskObject != null)
-            faceMaskObject.SetActive(isMaskActive);
+            faceMaskObject.SetActive(WorldState.Instance.IsMaskActive);
 
         isDead = false;
         TransitionTo(PlayerStateId.Idle);
@@ -601,8 +544,8 @@ public class PlayerController : MonoBehaviour
         TransitionTo(PlayerStateId.Die);
 
         // 1. 禁用玩家的物理、控制和视觉
-        RB.velocity = Vector2.zero;
-        RB.simulated = false; // 冻结刚体
+        SetVelocity(Vector2.zero);
+        RB.simulated = false; // 冻结事件总线（方案 B，C1：不参与求解，仅停用回调）
         Anim.enabled = false; // 停止人物原画动画
         GetComponent<SpriteRenderer>().enabled = false; // 隐藏主角本体
         if (faceMaskObject != null) 
@@ -641,13 +584,9 @@ public class PlayerController : MonoBehaviour
         Anim.enabled = true;
         GetComponent<SpriteRenderer>().enabled = true;
 
-        // 重置理智值等状态
+        // 重置理智值等状态；重生回表世界（SetWorld 内部等值静默 + 广播）
         currentSanity = config.maxSanity;
-        isMaskActive = false;
-        IsMaskActiveGlobally = false;
         WorldState.Instance.SetWorld(false);
-        UpdateLayerCollisions();
-        OnMaskStateChanged?.Invoke(false);
 
         isDead = false;
 

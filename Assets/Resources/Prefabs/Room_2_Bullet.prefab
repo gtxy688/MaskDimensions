@@ -4128,7 +4128,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 17273b6df8bf29346b5c8ad61041279d, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  bulletStats: {fileID: 11400000, guid: 7f2d073f8bf0a0a4da5b5bc433076f6b, type: 2}
+  bulletStats: {fileID: 11400000, guid: 8c2f1334d32b2344885f6241edca77d2, type: 2}
   roomConfig: {fileID: 11400000, guid: 8387c6a21ee817240a1dbe4f08d6eb54, type: 2}
   bulletPrefab: {fileID: 1511749995449613720, guid: ff2a6f61eb260674abbb3dd47f57aa79, type: 3}
   spawnPoints:
@@ -4140,6 +4140,8 @@ MonoBehaviour:
   - {fileID: 332790815970748494}
   - {fileID: 6966572240406811368}
   - {fileID: 5019649691939033263}
+  prewarmCount: 15
+  maxPoolCapacity: 50
 --- !u!1 &5390461972719993927
 GameObject:
   m_ObjectHideFlags: 0

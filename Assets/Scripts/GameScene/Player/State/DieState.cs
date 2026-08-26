@@ -10,10 +10,11 @@ public class DieState : BaseState
 
     public override void Enter()
     {
-        // 死亡进入逻辑：清空速度与输入
+        // 死亡进入逻辑：清零速度（自研入口）并冻结事件总线
+        // （RB.simulated 方案 B 下仅停用 Unity 回调，不参与求解）
+        player.SetVelocity(Vector2.zero);
         if (player.RB != null)
         {
-            player.RB.velocity = Vector2.zero;
             player.RB.simulated = false;
         }
     }

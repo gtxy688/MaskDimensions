@@ -1,4 +1,4 @@
-﻿using UnityEngine;
+using UnityEngine;
 
 /// <summary>
 /// 玩家核心数值配置文件 (Scriptable Object)
@@ -15,6 +15,12 @@ public class PlayerConfigSO : ScriptableObject
     /// 建议值：5~8，取决于关卡跨度。
     /// </summary>
     public float moveSpeed = 5f;
+
+    [Tooltip("重力加速度（正值，向下）。基线 9.81 = 旧 Physics2D.gravity 绝对值×gravityScale 1 的手感；任务 5 可调")]
+    public float gravity = 9.81f;
+
+    [Tooltip("自由落体最大速度（防速度无限增长）")]
+    public float maxFallSpeed = 20f;
 
     [Header("=== 跳跃手感优化 (Game Feel) ===")]
 

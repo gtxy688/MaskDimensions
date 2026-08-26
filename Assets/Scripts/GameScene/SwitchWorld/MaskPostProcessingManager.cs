@@ -34,8 +34,8 @@ public class MaskPostProcessingManager : MonoBehaviour
 
     private void OnEnable()
     {
-        // 监听玩家的面具切换事件
-        PlayerController.OnMaskStateChanged += HandleMaskStateChanged;
+        // 监听维度切换事件（任务 9 将整体替换本管理器，此处仅迁移订阅保活）
+        WorldState.OnMaskStateChanged += HandleMaskStateChanged;
 
         // 从 Volume Profile 中获取后处理组件的引用
         if (globalVolume != null && globalVolume.profile != null)
@@ -47,7 +47,7 @@ public class MaskPostProcessingManager : MonoBehaviour
 
     private void OnDisable()
     {
-        PlayerController.OnMaskStateChanged -= HandleMaskStateChanged;
+        WorldState.OnMaskStateChanged -= HandleMaskStateChanged;
     }
 
     private void HandleMaskStateChanged(bool isMaskActive)

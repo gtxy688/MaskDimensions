@@ -1,4 +1,4 @@
-﻿using UnityEngine;
+using UnityEngine;
 using UnityEngine.Playables;
 
 /// <summary>
@@ -42,7 +42,7 @@ public class FallState : BaseState
         if (player.MoveInput != 0 && player.IsTouchingWall(player.MoveInput))
             targetXVel = 0f;
 
-        player.RB.velocity = new Vector2(targetXVel, player.RB.velocity.y);
+        player.SetVelocity(new Vector2(targetXVel, player.Velocity.y));
         player.UpdateFacingDirection();
     }
 }

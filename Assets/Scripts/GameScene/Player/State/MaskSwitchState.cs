@@ -18,15 +18,15 @@
 //        base.Enter();
 //        switchTimer = 0f;
 
-//        // 1. 调用 Controller 中的核心方法，触发物理忽略和视觉广播
-//        //    并立即刷新地面检测结果（切换图层后碰撞检测结果可能变化）
-//        player.ToggleMaskDimension();
-//        player.RefreshGrounded();
+//        // 1. 调用 Controller 中的核心方法，触发物理过滤与事件广播
+//        //    （任务 4 后维度翻转/广播统一走 WorldState；RefreshGrounded 已删除，
+//        //      IsGrounded 改为每帧读 KinematicBody.LastResult，切换后自动反映新世界）
+//        WorldState.Instance.SwitchWorld();
 
 //        // 2. 仅在地面时停止玩家水平移动（空中变身不应瞬间清除横向动量）
 //        if (player.IsGrounded)
 //        {
-//            player.RB.velocity = new Vector2(0f, player.RB.velocity.y);
+//            player.SetVelocity(new Vector2(0f, player.Velocity.y));
 //        }
 
 //        // 3. (可选) 如果有变身动画，在这里播放
@@ -45,11 +45,9 @@
 //        // 硬直时间结束，退出变身状态并选择合适后续状态
 //        if (switchTimer >= switchDuration)
 //        {
-//            // 以最新的地面检测结果为准（可能在变身期间发生变化）
-//            player.RefreshGrounded();
-
+//            // 以最新的地面检测结果为准（IsGrounded 每帧由 KinematicBody.LastResult 驱动，
+//            //  切换后自动反映新世界，无需手动刷新）
 //            if (player.IsGrounded)
-//            {
 //                if (Mathf.Abs(player.MoveInput) > 0.1f)
 //                {
 //                    player.TransitionTo(PlayerStateId.Move);

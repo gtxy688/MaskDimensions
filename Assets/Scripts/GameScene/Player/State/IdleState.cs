@@ -1,4 +1,4 @@
-﻿using UnityEngine;
+using UnityEngine;
 
 /// <summary>
 /// 具体状态：待机。
@@ -11,13 +11,13 @@ public class IdleState : BaseState
     public override void Enter()
     {
         player.Anim.Play("Idle"); // 单向驱动视图表现
-        player.RB.velocity = new Vector2(0f, player.RB.velocity.y);
+        player.SetVelocity(new Vector2(0f, player.Velocity.y));
     }
 
     public override void LogicUpdate()
     {
         // 判定下落：不在地面且垂直速度为负（处理从边缘滑落的情况）
-        if (!player.IsGrounded && player.RB.velocity.y < 0f)
+        if (!player.IsGrounded && player.Velocity.y < 0f)
         {
             player.TransitionTo(PlayerStateId.Fall);
             return;
@@ -35,5 +35,13 @@ public class IdleState : BaseState
         {
             player.TransitionTo(PlayerStateId.Move);
         }
+    }
+
+    public override void PhysicsUpdate()
+    {
+        // 站定状态下也必须每固定步产生一次 Move：否则 LastResult 永远陈旧
+        // （Move((0,0)) 会跳过全部射线 → IsGrounded 恒 false → 土狼计时器空转 → 站定跳跃失效）。
+        // 与 Move/Jump/Fall/Hit 同构：清零水平速度，垂直速度由控制器重力积分维护。
+        player.SetVelocity(new Vector2(0f, player.Velocity.y));
     }
 }

@@ -46,12 +46,12 @@ public class InteractiveTutorialHUD : MonoBehaviour
 
     private void OnEnable()
     {
-        PlayerController.OnMaskStateChanged += OnMaskStateChanged;
+        WorldState.OnMaskStateChanged += OnMaskStateChanged;
     }
 
     private void OnDisable()
     {
-        PlayerController.OnMaskStateChanged -= OnMaskStateChanged;
+        WorldState.OnMaskStateChanged -= OnMaskStateChanged;
     }
 
     // 核心：单协程门控。杀掉上一个提示，再启动新的。
@@ -132,7 +132,7 @@ public class InteractiveTutorialHUD : MonoBehaviour
         while (timer < 8f)
         {
             if (Input.GetKeyDown(KeyCode.J)) break;
-            if (!PlayerController.IsMaskActiveGlobally) break;
+            if (!WorldState.Instance.IsMaskActive) break;
             timer += Time.deltaTime;
             yield return null;
         }

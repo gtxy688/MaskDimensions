@@ -1,4 +1,4 @@
-﻿using UnityEngine;
+using UnityEngine;
 
 /// <summary>
 /// 具体状态：移动。
@@ -15,7 +15,7 @@ public class MoveState : BaseState
 
     public override void LogicUpdate()
     {
-        if (!player.IsGrounded && player.RB.velocity.y < 0f)
+        if (!player.IsGrounded && player.Velocity.y < 0f)
         {
             player.TransitionTo(PlayerStateId.Fall);
             return;
@@ -40,7 +40,7 @@ public class MoveState : BaseState
         if (player.MoveInput != 0 && player.IsTouchingWall(player.MoveInput))
             targetXVel = 0f;
 
-        player.RB.velocity = new Vector2(targetXVel, player.RB.velocity.y);
+        player.SetVelocity(new Vector2(targetXVel, player.Velocity.y));
         player.UpdateFacingDirection();
     }
 

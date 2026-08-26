@@ -39,13 +39,10 @@ public class HitState : BaseState
 
     public override void PhysicsUpdate()
     {
-        // 硬直期间水平速度阻尼衰减
-        if (player.RB != null)
-        {
-            player.RB.velocity = new Vector2(
-                Mathf.MoveTowards(player.RB.velocity.x, 0f, 15f * Time.fixedDeltaTime),
-                player.RB.velocity.y
-            );
-        }
+        // 硬直期间水平速度阻尼衰减（读写统一走自研速度入口，RB 不再参与求解）
+        player.SetVelocity(new Vector2(
+            Mathf.MoveTowards(player.Velocity.x, 0f, 15f * Time.fixedDeltaTime),
+            player.Velocity.y
+        ));
     }
 }

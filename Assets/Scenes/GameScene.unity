@@ -710,10 +710,6 @@ PrefabInstance:
       propertyPath: targetRoom
       value: 
       objectReference: {fileID: 8402952536377216459}
-    - target: {fileID: 3303388054451883689, guid: e8456deed8df9d549b78e5e166cce259, type: 3}
-      propertyPath: bulletStats
-      value: 
-      objectReference: {fileID: 11400000, guid: 8c2f1334d32b2344885f6241edca77d2, type: 2}
     - target: {fileID: 5253034737784547274, guid: e8456deed8df9d549b78e5e166cce259, type: 3}
       propertyPath: m_Name
       value: Room_2_Bullet

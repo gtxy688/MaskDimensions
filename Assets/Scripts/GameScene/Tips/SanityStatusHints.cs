@@ -36,7 +36,7 @@ public class SanityStatusHints : MonoBehaviour
 
     private void OnEnable()
     {
-        PlayerController.OnMaskStateChanged += OnMaskStateChanged;
+        WorldState.OnMaskStateChanged += OnMaskStateChanged;
         PlayerController.OnSanityChanged += OnSanityChanged;
         PlayerController.OnInsufficientSanity += OnInsufficientSanity;
         PlayerController.OnSanityForcedRecovery += OnSanityForcedRecovery;
@@ -45,7 +45,7 @@ public class SanityStatusHints : MonoBehaviour
 
     private void OnDisable()
     {
-        PlayerController.OnMaskStateChanged -= OnMaskStateChanged;
+        WorldState.OnMaskStateChanged -= OnMaskStateChanged;
         PlayerController.OnSanityChanged -= OnSanityChanged;
         PlayerController.OnInsufficientSanity -= OnInsufficientSanity;
         PlayerController.OnSanityForcedRecovery -= OnSanityForcedRecovery;

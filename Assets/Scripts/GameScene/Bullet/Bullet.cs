@@ -86,6 +86,13 @@ public class Bullet : MonoBehaviour, IPoolable
     {
         if (other.CompareTag("Player"))
         {
+            // 维度门（替代已移除的 IgnoreLayerCollision 维度切换）：子弹自身是 MaskObject（showWhenMaskActive 标记所属世界），
+            // 仅当前世界与子弹世界一致时可命中；异世界子弹不可见也不可伤（02-dimension：回调级命中需业务代码显式判定，
+            // 射线级走 ICollisionFilter；本脚本其余逻辑保留不动）。
+            MaskObject mask = GetComponent<MaskObject>();
+            if (mask != null && WorldState.Instance.IsMaskActive != mask.ShowWhenMaskActive)
+                return;
+
             PlayerController player = other.GetComponent<PlayerController>();
             if (player != null && !player.isDead)
             {
