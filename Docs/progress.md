@@ -12,7 +12,7 @@
 **目标**：自研 2D 运动学物理（Kinematic2D）+ 维度渲染差异化
 **分支**：master
 **执行模式**：subagent-driven-development（AI 实现 → 任务审查 → 用户在 Unity 手动验收 → 验收通过才 commit）
-**当前进度**：任务 4/16 完成 ✅（任务 1、2、3 也已完成）
+**当前进度**：任务 5/16 完成 ✅（任务 1~4 也已完成）
 
 ## 二、任务状态表
 
@@ -22,8 +22,8 @@
 | 2 | Kinematic2D 核心框架 | ✅ 完成（已验收） | `f69178c` |
 | 3 | 维度系统（WorldState + 过滤器 + 事件迁移） | ✅ 完成（已验收） | `3e605bf`（+chore `04a2d08`） |
 | 4 | 玩家接入 KinematicBody（移除 Rigidbody2D 驱动） | ✅ 完成（已验收） | `912d704` |
-| 5 | 手感回归（土狼时间/跳缓冲/顿帧） | ⏳ **下一个** | — |
-| 6 | 斜坡（SlopeResolver） | 待办 | — |
+| 5 | 手感回归（土狼时间/跳缓冲/顿帧） | ✅ 完成（已验收） | `6f0cff3` |
+| 6 | 斜坡（SlopeResolver） | ⏳ **下一个（晚上做）** | — |
 | 7 | 单向板 | 待办 | — |
 | 8 | 移动平台 | 待办 | — |
 | 9 | 渲染线1：双 Volume 维度过渡 | 待办 | — |
@@ -93,28 +93,39 @@
 
 **⚠️ 调试教训（面试可用，详见 01-kinematic2d.md 硬约束）**：Composite Collider 2D（Outlines 几何）的内侧起点不被 `queriesStartInColliders=true` 视为命中——自研射线控制器遇复合碰撞体必须做"贴地表上探"防隧道；Kinematic↔Kinematic 接触需 FullKinematicContacts。
 
+### 任务 5：手感回归（提交见下节，代码 1 处 + 文档维护）
+
+**交付**：
+- `PlayerController.cs` Start 末尾 +4 行：`WorldState.Instance.SetWorld(false);`（缺陷 7 修复：DontDestroyOnLoad 单例跨局残留 → 每局必从表世界开始；首次等值静默零广播）
+- 计时器（土狼/跳缓冲）、顿帧、预览**零改动**（字节级验证）；混合时间步裁定**不改**（顿帧冻结依赖 Move 的 Time.deltaTime）
+- 文档维护：`01-kinematic2d.md` 补硬约束 #9（复合体内侧隧道 + 上探防护）；`05-player-fsm.md` 事件归属更新为 WorldState + 方案 B 注记
+
+**验收通过**：土狼/跳缓冲/顿帧兼容、手感与改造前一致（数值基线 gravity 9.81 / maxFall 20 未调）、菜单重进必为表世界、无回归。
+
+**⚠️ 顿帧语义订正（审查者核实）**：timeScale=0 时 Unity 固定步停摆（FixedUpdate 不运行），顿帧期间 Velocity/LastResult 原样保留——"动量完美继承"字面成立（子代理报告曾误述"FixedUpdate 仍运行累积 1.5m/s"，已驳回）。
+
 ## 四、给新对话的交接说明
 
-> 从 **任务 5（手感回归）** 开始继续执行。以下信息必须传给新对话。
+> 从 **任务 6（斜坡 SlopeResolver）** 开始继续执行（用户计划晚上做）。以下信息必须传给新对话。
 
 ### 新对话必读文件（按顺序）
-1. `Docs/superpowers/plans/2026-08-24-mask-dimensions-deep-rework.md` —— 16 任务实施计划全文
-2. `.superpowers/sdd/2026-08-24-mask-dimensions-deep-rework/progress.md` —— 子代理执行账本（含任务状态、调试教训、全部裁定、产物位置）
-3. `Docs/architecture/01-kinematic2d.md` + `Docs/architecture/05-player-fsm.md` —— 任务 5 相关架构文档
-4. `Docs/tests/01-kinematic2d-test.md`（土狼/跳缓冲/顿帧条目）+ `Docs/tests/05-player-fsm-test.md`（输入手感/时间系统回归）—— 任务 5 验收清单
+1. `Docs/superpowers/plans/2026-08-24-mask-dimensions-deep-rework.md` —— 16 任务实施计划全文（任务 6 段：步骤 1 SlopeResolver.cs 完整代码、步骤 2 KinematicBody 接入、验收引用）
+2. `.superpowers/sdd/2026-08-24-mask-dimensions-deep-rework/progress.md` —— 子代理执行账本（任务状态、调试教训、全部裁定、产物位置）
+3. `Docs/architecture/01-kinematic2d.md` —— 任务 6 架构文档（重点：增量 SlopeResolver、8 条硬约束 + #9 复合体防护）
+4. `.superpowers/sdd/2026-08-24-mask-dimensions-deep-rework/task-6-brief.md` —— 任务 6 简报（需先读再按需补控制者裁定）
+5. `Docs/tests/01-kinematic2d-test.md` 「增量模块」斜坡/下坡条目 + `Docs/architecture/06-pool.md` 不需要 —— 任务 6 验收清单
 
-### 任务 5 要点（已确认的裁定）
-- **计划本体**：验证计时器（CoyoteTime/JumpBuffer）与新物理兼容（不改逻辑，数值走 PlayerConfigSO）；验证顿帧/预览兼容（KinematicBody.Move 用 `Time.deltaTime` → timeScale=0 时自然冻结 ✓ 正确行为）
-- **遗留事项一并处理**：
-  - 缺陷7（账本）：WorldState 是 DontDestroyOnLoad 单例，菜单→GameScene 重进可能残留上一局维度 → 玩家 Start 时 `WorldState.Instance.SetWorld(false)` 同步（初始必为表世界）
-  - 审查 Minor：`Velocity.y` 落地不归零 → **已在任务 4 实装**（FixedUpdate 落地钳制）；混合时间步（Update 时序 SetVelocity 用 frame deltaTime）→ **裁定不改**（顿帧需要 deltaTime 冻结，保持现状并记录理由）；BOM 噪音、MaskSwitchState 注释括号 → 可不处理
-- 若用户反馈跳跃/下落手感与改造前有感知差异：调 `PlayerConfigSO` 的 gravity/maxFallSpeed（基线 9.81/20，资产在 `Assets/SO/PlayerSO.asset`）
-- 文档维护（控制器做，不进实现子代理）：05-player-fsm.md 第 34 行事件归属改为 WorldState（任务 3 后文档滞后）；01-kinematic2d.md 补"复合碰撞体内侧起点隧道"硬约束（任务 4 调试教训）
+### 任务 6 要点（预判裁定，供参考）
+- **计划有 SlopeResolver 完整代码**（步骤 1 逐字实现）；KinematicBody 接入见步骤 2（爬坡取 hit.normal 角度 + `ResolveClimb`；下坡在 `moveAmount.y<0` 时向下长射线）。
+- **⚠️ 前序遗留风险（任务 2 审查 M2，必须处理）**：KinematicBody 水平/垂直射线命中后**不 break（last-wins）**——平墙/平地无影响，但**斜面会取后命中覆盖前命中**（非最近者优先），与斜坡解析冲突。任务 6 简报需裁定：改为"最近有效命中优先"（best-distance，与 NonAlloc 现有逻辑可统一）后再叠加斜坡解析，或斜坡专用分支。
+- **复合体上探防护已实装（MoveVertically）**：斜坡任务改动时不得破坏该分支；注意"脚底上探命中 → 判贴地"与斜坡贴面（下坡）的交互——下坡时上探可能命中坡面，需验证不误判。
+- 无视差风险：`PlayerRayConfig` 掩码 648（Ground+双维度层）已覆盖斜坡瓦片；斜坡瓦片若用 MaskObject 需 `ShowWhenMaskActive` 匹配当前世界（过滤器已内置）。
+- 若关卡暂无斜坡几何（L2 才重做），验收可用临时测试场景/临时方块验证（同任务 2 模式，脚手架不提交）。
 
 ### 执行须知
 - **工作流**：AI 实现 → 附验收清单 → 用户在 Unity 手动验收 → 验收通过才 commit（禁止 AI 自行提交）
 - commit 用中文规范（type 英文 + scope/description 中文）
-- **MCP（8092 桥本会话已实测可用）**：桥 8092 可同时连多个 Unity 实例，需 `set_active_instance` 选 `Mask Dimensions@5092658667197165`（hash 前缀 `5092` 亦可）；Play 模式 execute_code 间歇性可用；**最终验收以用户手动 Play 为准**
+- **MCP（8092 桥已实测可用）**：`set_active_instance` 选 `Mask Dimensions@5092658667197165`（hash 前缀 `5092`）；Play 模式 execute_code 间歇性可用；**最终验收以用户手动 Play 为准**
 - 删任何脚本前，检查场景 GUID 引用（任务 1 的教训：会留 Missing Script）
 - 测试脚手架（PhysTest 等）验收后删除、不提交；`.mcp-schema.json` 为 MCP 产物，不提交
 - 生成审查包必须用 UTF-8 编码（任务 2 的 I3 教训：默认编码会乱码）
@@ -123,6 +134,7 @@
 
 - [x] 任务 3（维度系统，`3e605bf`）
 - [x] 任务 4（玩家接入 KinematicBody，`912d704`）
-- [ ] 任务 5~16 按计划执行（新对话接手）
+- [x] 任务 5（手感回归，任务 5 提交）
+- [ ] 任务 6~16 按计划执行（新对话接手，任务 6 晚上做）
 - [ ] 每完成一任务更新本文件和 `.superpowers/sdd/.../progress.md`
 - [ ] 全 16 任务完成后：最终代码审查 + finishing-a-development-branch
