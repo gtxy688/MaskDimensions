@@ -2,7 +2,7 @@
 
 > 本文件是**项目级进度总览**（用户可见、新对话可直接读取）。
 > 子代理执行的详细账本在 `.superpowers/sdd/2026-08-24-mask-dimensions-deep-rework/progress.md`（隐藏目录，同为权威记录）。
-> 最后更新：2026-08-26
+> 最后更新：2026-08-27
 
 ---
 
@@ -12,7 +12,7 @@
 **目标**：自研 2D 运动学物理（Kinematic2D）+ 维度渲染差异化
 **分支**：master
 **执行模式**：subagent-driven-development（AI 实现 → 任务审查 → 用户在 Unity 手动验收 → 验收通过才 commit）
-**当前进度**：任务 5/16 完成 ✅（任务 1~4 也已完成）
+**当前进度**：任务 9/16 完成 ✅（任务 1~5 与任务 9 已验收；任务 9 由用户委托 AI 自主验收）
 
 ## 二、任务状态表
 
@@ -23,10 +23,10 @@
 | 3 | 维度系统（WorldState + 过滤器 + 事件迁移） | ✅ 完成（已验收） | `3e605bf`（+chore `04a2d08`） |
 | 4 | 玩家接入 KinematicBody（移除 Rigidbody2D 驱动） | ✅ 完成（已验收） | `912d704` |
 | 5 | 手感回归（土狼时间/跳缓冲/顿帧） | ✅ 完成（已验收） | `6f0cff3` |
-| 6 | 斜坡（SlopeResolver） | ⏳ **下一个（晚上做）** | — |
-| 7 | 单向板 | 待办 | — |
-| 8 | 移动平台 | 待办 | — |
-| 9 | 渲染线1：双 Volume 维度过渡 | 待办 | — |
+| 6 | 斜坡（SlopeResolver） | 待办（用户决定渲染线先行，顺延） | — |
+| 7 | 单向板 | 待办（同顺延） | — |
+| 8 | 移动平台 | 待办（同顺延） | — |
+| 9 | 渲染线1：双 Volume 维度过渡 | ✅ 完成（自主验收通过） | `bcf3b40` |
 | 10 | 渲染线2：URP 2D Light | 待办 | — |
 | 11 | 渲染线3：自写 Renderer Feature 转场 | 待办 | — |
 | 12 | RoomConfigSO 扩展 | 待办 | — |
@@ -104,37 +104,63 @@
 
 **⚠️ 顿帧语义订正（审查者核实）**：timeScale=0 时 Unity 固定步停摆（FixedUpdate 不运行），顿帧期间 Velocity/LastResult 原样保留——"动量完美继承"字面成立（子代理报告曾误述"FixedUpdate 仍运行累积 1.5m/s"，已驳回）。
 
+### 任务 9：渲染线1——双 Volume 维度过渡（已提交 `bcf3b40`）
+
+**交付**：
+- 新建 `Assets/Scripts/Rendering/DimensionVolumeController.cs`（计划逐字：双 Volume weight 交叉 0.4s、`Time.unscaledDeltaTime`、OnEnable/OnDisable 成对订阅、StopCoroutine 防叠加、尾权重硬置 0/1）
+- 新建 `Assets/SO/Profiles/RealWorldProfile.asset`（ColorAdjustments 0/0 + Vignette 0.2）与 `MaskWorldProfile.asset`（ColorAdjustments -40/-0.5 + FilmGrain 0.6）——**所有参数 `overrideState=true`（关键！见下方教训）**
+- `GameScene.unity`：RealWorldVolume(w=1) + MaskWorldVolume(w=0)（isGlobal、layer 0）+ DimensionVolumeController 接线；**移除旧 MaskPostProcessingManager 组件与旧 Volume**
+- `TestGameScene.unity`：移除 MPP 组件
+- **删除** `MaskPostProcessingManager.cs`（guid `ae948431…` 已无场景引用，删除前已核查）
+
+**验收方式**：用户委托 AI 自主验收（MCP 进 Play + 手动渲染截图像素对比，全流程无需用户操作）。
+
+**⚠️ 调试教训（本项目最隐蔽的坑，面试级）——"配置全对却完全没效果"的三层根因**：
+1. **`VolumeParameter.overrideState` 未开（主因）**：Volume 系统合成时只采用 `overrideState=true` 的参数！`VolumeProfile.Add<T>()` 创建组件时所有参数默认**关闭**覆盖——只设 `.value` 无效。症状：Profile 资产 YAML 里值正确（-40/0.6）、组件非空、Volume 权重正确，但 `VolumeManager.stack` 合成结果永远是默认值 → 画面零变化。修复：`component.SetAllOverridesTo(true)` + SetDirty + SaveAssets。
+2. **Play 模式中改资产不生效**：运行时 `Volume.profile` 是资产实例化副本（InstanceID 与 `LoadAssetAtPath` 不同）——改资产必须**退出 Play 重进**才被副本克隆。调试时在 Play 中反复改资产必然无效。
+3. **验证维度要对**：磁盘重载"验证全绿"（组件数、value 正确）仍可能无效——必须验证 `overrideState`。这也是"修了两轮都无效"的根源。
+
+**自主验收证据**（MCP 采样 + 截图像素统计）：
+- 表世界：RealWorld w=1 / MaskWorld w=0，stack 合入 vig=0.2 ✓
+- 同内容对照截图：无滤镜 avgSat=0.535 → 里世界滤镜 avgSat=0.370（饱和 -31%、整体变暗）→ 滤镜真实进渲染 ✓
+- 过渡中态（weight 0.5/0.5）avgSat=0.493 平滑介于两者之间 → 任意中间帧渲染正确 ✓
+- 顿帧兼容：timeScale=0 下协程用 unscaledDeltaTime 首帧推进 w 0→0.041 + 插值数学必然完成（真实帧循环）✓
+- 表/里权重切换、事件→控制器→weight 全链路采样验证 ✓
+
 ## 四、给新对话的交接说明
 
-> 从 **任务 6（斜坡 SlopeResolver）** 开始继续执行（用户计划晚上做）。以下信息必须传给新对话。
+> 从 **任务 10（渲染线 2：URP 2D Light）** 开始继续执行。**执行顺序（用户已调整）**：渲染线（9→10→11）先行，物理增量（6→8）顺延，关卡（12→15）与收尾（16）不变。
 
 ### 新对话必读文件（按顺序）
-1. `Docs/superpowers/plans/2026-08-24-mask-dimensions-deep-rework.md` —— 16 任务实施计划全文（任务 6 段：步骤 1 SlopeResolver.cs 完整代码、步骤 2 KinematicBody 接入、验收引用）
+1. `Docs/superpowers/plans/2026-08-24-mask-dimensions-deep-rework.md` —— 16 任务实施计划全文（任务 9 段：步骤 1 代码、步骤 2 场景配置、步骤 3 删旧脚本）
 2. `.superpowers/sdd/2026-08-24-mask-dimensions-deep-rework/progress.md` —— 子代理执行账本（任务状态、调试教训、全部裁定、产物位置）
-3. `Docs/architecture/01-kinematic2d.md` —— 任务 6 架构文档（重点：增量 SlopeResolver、8 条硬约束 + #9 复合体防护）
-4. `.superpowers/sdd/2026-08-24-mask-dimensions-deep-rework/task-6-brief.md` —— 任务 6 简报（需先读再按需补控制者裁定）
-5. `Docs/tests/01-kinematic2d-test.md` 「增量模块」斜坡/下坡条目 + `Docs/architecture/06-pool.md` 不需要 —— 任务 6 验收清单
+3. `Docs/architecture/03-rendering.md` + `Docs/tests/03-rendering-test.md` —— 任务 9 架构/验收文档
+4. `.superpowers/sdd/2026-08-24-mask-dimensions-deep-rework/task-9-brief.md` —— 任务 9 简报（已含控制者补充需求 E1~E5）
 
-### 任务 6 要点（预判裁定，供参考）
-- **计划有 SlopeResolver 完整代码**（步骤 1 逐字实现）；KinematicBody 接入见步骤 2（爬坡取 hit.normal 角度 + `ResolveClimb`；下坡在 `moveAmount.y<0` 时向下长射线）。
-- **⚠️ 前序遗留风险（任务 2 审查 M2，必须处理）**：KinematicBody 水平/垂直射线命中后**不 break（last-wins）**——平墙/平地无影响，但**斜面会取后命中覆盖前命中**（非最近者优先），与斜坡解析冲突。任务 6 简报需裁定：改为"最近有效命中优先"（best-distance，与 NonAlloc 现有逻辑可统一）后再叠加斜坡解析，或斜坡专用分支。
-- **复合体上探防护已实装（MoveVertically）**：斜坡任务改动时不得破坏该分支；注意"脚底上探命中 → 判贴地"与斜坡贴面（下坡）的交互——下坡时上探可能命中坡面，需验证不误判。
-- 无视差风险：`PlayerRayConfig` 掩码 648（Ground+双维度层）已覆盖斜坡瓦片；斜坡瓦片若用 MaskObject 需 `ShowWhenMaskActive` 匹配当前世界（过滤器已内置）。
-- 若关卡暂无斜坡几何（L2 才重做），验收可用临时测试场景/临时方块验证（同任务 2 模式，脚手架不提交）。
+### 任务 9 已完成（2026-08-27，用户委托 AI 自主验收通过）
+- 实现 = `Assets/Scripts/Rendering/DimensionVolumeController.cs`（计划逐字）+ 双 Profile（**全部参数 overrideState=true**）+ 双 Volume 场景接线 + 移除旧 MPP（组件两场景已清、脚本已删，guid 无残留引用）。
+- 提交号见任务表；**坑与教训见任务 9 详情段（三坑：overrideState / Play 中改资产不生效 / 验证维度要对）**。
+
+### 任务 10 要点（渲染线 2：URP 2D Light）
+- 目标：表世界明亮（Global Light 2D 高亮度）、里世界昏暗 + 局部光源（玩家持灯挂子物体），光照切换与维度事件同步。**禁止"后处理调亮度"当光照**（03-rendering 硬约束 5）。
+- 开工前确认：当前 URP 用的是 `UniversalRendererData`（3D renderer，`Assets/ArtRes/URP/`）——**3D renderer 不支持 Light 2D**，需先评估迁移 2D Renderer 的影响（2D Renderer 后处理支持 FilmGrain/Vignette/ColorAdj 已验证的思路，但 Bloom 等差异要注意）。
+- 依赖：02-dimension 事件（同任务 9 订阅模式）；可考虑 `DimensionLightController` 订阅 `OnMaskStateChanged` 同步 Global Light 2D 参数。
+
+### 后续任务预告
+- 任务 10（渲染线 2）：URP 2D Light 双世界光照（先确认 Renderer 2D 迁移方案；Global Light ×2 + 玩家持灯；DimensionLightController）。
+- 任务 11（渲染线 3）：自写 Renderer Feature 扫屏转场（shader + Pass + Feature，切换协程驱动）。
+- 渲染线后再回物理增量 6~8（斜坡 M2 风险预判已记于本项目文档）。
 
 ### 执行须知
-- **工作流**：AI 实现 → 附验收清单 → 用户在 Unity 手动验收 → 验收通过才 commit（禁止 AI 自行提交）
+- **工作流**：AI 实现 → 附验收清单 → 用户在 Unity 手动验收 → 验收通过才 commit（禁止 AI 自行提交）。**例外**：用户可委托 AI 自主验收（如任务 9：MCP 进 Play + 截图像素对比），委托时 AI 验收通过即 commit。
 - commit 用中文规范（type 英文 + scope/description 中文）
-- **MCP（8092 桥已实测可用）**：`set_active_instance` 选 `Mask Dimensions@5092658667197165`（hash 前缀 `5092`）；Play 模式 execute_code 间歇性可用；**最终验收以用户手动 Play 为准**
-- 删任何脚本前，检查场景 GUID 引用（任务 1 的教训：会留 Missing Script）
-- 测试脚手架（PhysTest 等）验收后删除、不提交；`.mcp-schema.json` 为 MCP 产物，不提交
-- 生成审查包必须用 UTF-8 编码（任务 2 的 I3 教训：默认编码会乱码）
+- **MCP（8092 桥）**：`set_active_instance` 选 `Mask Dimensions@5092658667197165`；execute_code 环境**帧冻结**（主线程桥接阻塞，Update/协程不随真实时间推进）——观测"随时间变化"用**手动 Camera.Render + 截图像素统计**；改资产必须在**编辑模式**（Play 中改不持久化）。
 
 ## 五、待办
 
 - [x] 任务 3（维度系统，`3e605bf`）
 - [x] 任务 4（玩家接入 KinematicBody，`912d704`）
-- [x] 任务 5（手感回归，任务 5 提交）
-- [ ] 任务 6~16 按计划执行（新对话接手，任务 6 晚上做）
+- [x] 任务 5（手感回归，`6f0cff3`）
+- [ ] 任务 9~11（渲染线）→ 6~8（物理增量）→ 12~16 按新顺序执行
 - [ ] 每完成一任务更新本文件和 `.superpowers/sdd/.../progress.md`
 - [ ] 全 16 任务完成后：最终代码审查 + finishing-a-development-branch
