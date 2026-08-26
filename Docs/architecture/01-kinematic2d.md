@@ -58,12 +58,13 @@ interface ICollisionFilter
 6. **物理层不读输入**：Move 的 velocity 由调用方（PlayerController）算好传入。
 7. **不产生 GC 压力**：射线数组/临时数据避免每帧分配（面试点）。
 8. **场景出生位置不得与地形重叠**：出生时与墙/天花板重叠会导致首帧检测混乱；物体出生点应贴地或留出 SkinWidth 余量。
+9. **复合碰撞体内侧起点会隧道穿透（任务 4 实测）**：Composite Collider 2D（geometryType=Outlines）的**内侧起点即使 `queriesStartInColliders=true` 也不报告命中**——向下射线会直接穿越空心区域打到对侧外轮廓（实测：起点在表面上表面内侧 1.5cm → 命中该复合体底部 y=-6 边框，即"穿越地面"现象）。**防护**：向下移动分支必须先做"脚底上探"（2×skinWidth，走过滤器）——紧贴放行表面则判贴地、微上推、本帧不隧道（MoveVertically 已实装）。凡遇到复合碰撞体地面（Tilemap + CompositeCollider）的关卡必须依赖此防护。
 
 ## 依赖
 
 - 依赖：BoxCollider2D（RequireComponent）、Physics2D.Raycast。
 - 被依赖：05-player-fsm（PlayerController 调用 Move）、02-dimension（注入过滤器）。
-- 不依赖：Rigidbody2D（禁止添加）、其他业务系统。
+- 不依赖：Rigidbody2D（KinematicBody 组件本身禁止添加；注：任务 4 方案 B 中 Player 物体另行保留的 Kinematic Rigidbody2D 是"事件总线"（回调触发源），与 KinematicBody 的解算无关、**玩家物理路径**零 `RB.velocity` 引用，不违背本条）。
 
 ## 边界与错误处理
 

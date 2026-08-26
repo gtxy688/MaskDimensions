@@ -31,10 +31,12 @@
 ## 保留不动（硬约束）
 
 - 状态机生命周期方法（Enter/Exit/LogicUpdate/PhysicsUpdate）签名。
-- 事件：OnMaskStateChanged / OnMaskPreviewChanged / OnSanityChanged / OnInsufficientSanity / OnSanityForcedRecovery / OnPlayerDied（签名禁止变更）。
+- 事件（签名禁止变更）：维度两事件 `OnMaskStateChanged(bool)` / `OnMaskPreviewChanged(bool)` **已迁 WorldState（任务 3 完成，本类不再声明）**；理智事件 `OnSanityChanged` / `OnInsufficientSanity` / `OnSanityForcedRecovery` / `OnPlayerDied` 仍在 PlayerController。
 - 死亡/重生/传送协程流程（DieAndRespawnRoutine / TeleportRoutine / ResetForNewRoom）。
 - 状态类命名与切换白名单（CanSwitchMask）。
 - 禁止把状态机扩成 HFSM（只狼项目主场）。
+
+> 注（任务 4 方案 B）：Rigidbody2D 以 **Kinematic 事件总线**形式保留在 Player 上（Unity 2D 触发/碰撞回调要求碰撞对至少一方有 RB2D；代码零 `RB.velocity` 引用，位移/重力/碰撞 100% 走 KinematicBody）。
 
 ## 依赖
 

@@ -133,6 +133,10 @@ public class PlayerController : MonoBehaviour
     {
         //直接从字典里把 Idle 取出来，喂给状态机的“初始化”接口
         StateMachine.Initialize(stateTable[PlayerStateId.Idle]);
+
+        // 每局会话从表世界开始：WorldState 是 DontDestroyOnLoad 单例，菜单→GameScene 重进可能残留上一局维度
+        // （账本缺陷7）。SetWorld 在值相同（false==false，首次进入）时静默返回，不产生冗余广播。
+        WorldState.Instance.SetWorld(false);
     }
     private void FixedUpdate()
     {
