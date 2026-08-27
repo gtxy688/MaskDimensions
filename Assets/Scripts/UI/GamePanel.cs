@@ -17,6 +17,13 @@ public class GamePanel : BasePanel
     }
     void Update()
     {
-        
+        // ESC 开关设置菜单：键盘等价于 btnSetting（演示/游玩时免鼠标点击），已打开时再按 ESC 关闭
+        if (Input.GetKeyDown(KeyCode.Escape))
+        {
+            if (UIManager.Instance.GetPanel<SettingPanel>() != null)
+                UIManager.Instance.HidePanel<SettingPanel>();
+            else
+                UIManager.Instance.ShowPanel<SettingPanel>();
+        }
     }
 }
