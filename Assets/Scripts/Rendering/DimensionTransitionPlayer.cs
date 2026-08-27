@@ -1,5 +1,6 @@
 using System.Collections;
 using UnityEngine;
+using UnityEngine.Rendering;
 
 /// <summary>
 /// 维度切换转场播放器：订阅 WorldState 切换事件，用 unscaledDeltaTime 驱动 Renderer Feature 的转场进度。
@@ -12,6 +13,37 @@ public class DimensionTransitionPlayer : MonoBehaviour
     [SerializeField] private bool useTearMode = true; // true=撕裂 false=扫屏
 
     private Coroutine routine;
+
+    private void Start()
+    {
+        // 转场 shader 预热：首次绘制会触发 shader 变体编译（首次切换瞬间明显卡顿的主因之一），
+        // 进场景即在离屏 RT 上画一次全屏三角形，把编译提前到玩家操作之前。
+        // 为什么用独立材质实例：pass 的材质是 RendererData 资产的私有对象，场景组件拿不到；
+        // shader 变体编译以 shader 为单位（与材质实例无关），即建即毁即可完成预热。
+        WarmUpTransitionShader();
+    }
+
+    private void WarmUpTransitionShader()
+    {
+        Shader shader = Shader.Find("Hidden/DimensionTransition");
+        if (shader == null)
+        {
+            return;
+        }
+        Material mat = new Material(shader) { hideFlags = HideFlags.HideAndDontSave };
+        mat.SetFloat("_Progress", 0.5f); // 让 frag 走撕裂分支，保证完整变体被编译
+        mat.SetFloat("_Mode", 1f);
+
+        CommandBuffer cmd = CommandBufferPool.Get("DimensionTransitionWarmUp");
+        int tmpId = Shader.PropertyToID("_DimensionTransitionWarmUpRT");
+        cmd.GetTemporaryRT(tmpId, 16, 16, 0, FilterMode.Bilinear);
+        cmd.SetRenderTarget(tmpId);
+        cmd.DrawProcedural(Matrix4x4.identity, mat, 0, MeshTopology.Triangles, 3, 1, null);
+        cmd.ReleaseTemporaryRT(tmpId);
+        Graphics.ExecuteCommandBuffer(cmd);
+        CommandBufferPool.Release(cmd);
+        Destroy(mat);
+    }
 
     private void OnEnable()
     {

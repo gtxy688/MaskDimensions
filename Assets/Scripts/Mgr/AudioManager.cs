@@ -101,9 +101,15 @@ public class AudioManager : SingletonMono<AudioManager>
         bgmSourceNormal.volume = PlayerPrefs.GetFloat(volumeKey, 1f);
         bgmSourceVoid.volume   = PlayerPrefs.GetFloat(volumeKey, 1f);
 
-        // 初始状态：表世界播放，里世界静默（但不调用 Play，省性能）
+        // 初始状态：表世界播放，里世界静默但不调用 Play（省性能）
         bgmSourceNormal.Play();
-        bgmSourceVoid.Stop(); 
+        // 里世界 BGM 预热：首次 Play 会触发 AudioClip 解码与音频管线初始化（首次切换卡顿嫌疑之一），
+        // 进场景即静音预载一次并暂停——Pause 后 isPlaying=false，首次切入仍走 Play() 从头播放，行为不变。
+        float voidVol = bgmSourceVoid.volume;
+        bgmSourceVoid.volume = 0f;
+        bgmSourceVoid.Play();
+        bgmSourceVoid.volume = voidVol;
+        bgmSourceVoid.Pause(); 
     }
 
     /// <summary>

@@ -137,6 +137,16 @@ public class PlayerController : MonoBehaviour
         // 每局会话从表世界开始：WorldState 是 DontDestroyOnLoad 单例，菜单→GameScene 重进可能残留上一局维度
         // （账本缺陷7）。SetWorld 在值相同（false==false，首次进入）时静默返回，不产生冗余广播。
         WorldState.Instance.SetWorld(false);
+
+        // 切换特效预热：首次 Instantiate 会同步加载 prefab 依赖（材质/shader）并初始化粒子系统，
+        // 若发生在玩家第一次切换的瞬间会叠加出明显卡顿；进场景预例化一次即销毁，把一次性开销提前。
+        // SetActive(false) 阻止 PlayOnAwake 真正播放（预热无声无影）。
+        if (switchVFXPrefab != null)
+        {
+            ParticleSystem warmup = Instantiate(switchVFXPrefab, transform.position, Quaternion.identity);
+            warmup.gameObject.SetActive(false);
+            Destroy(warmup.gameObject);
+        }
     }
     private void FixedUpdate()
     {
