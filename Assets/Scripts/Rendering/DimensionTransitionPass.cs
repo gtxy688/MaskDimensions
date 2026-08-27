@@ -10,6 +10,7 @@ using UnityEngine.Rendering.Universal;
 public class DimensionTransitionPass : ScriptableRenderPass
 {
     private const string k_CmdName = "DimensionTransition";
+    private static readonly int s_MainTexId = Shader.PropertyToID("_MainTex");
     private static readonly int s_ProgressId = Shader.PropertyToID("_Progress");
     private static readonly int s_ModeId = Shader.PropertyToID("_Mode");
     private static readonly int s_DirectionId = Shader.PropertyToID("_Direction");
@@ -78,16 +79,28 @@ public class DimensionTransitionPass : ScriptableRenderPass
         CommandBuffer cmd = CommandBufferPool.Get(k_CmdName);
         using (new ProfilingScope(cmd, new ProfilingSampler(k_CmdName)))
         {
-            RenderTargetIdentifier source = renderingData.cameraData.renderer.cameraColorTargetHandle;
-            RenderTextureDescriptor desc = renderingData.cameraData.cameraTargetDescriptor;
-            desc.depthBufferBits = 0;
+            RTHandle source = renderingData.cameraData.renderer.cameraColorTargetHandle;
+            int w = source.rt.width;
+            int h = source.rt.height;
 
-            // 老式 blit 链：源 → 临时 RT（shader 扫屏/撕裂）→ 拷回源。
-            // 为什么临时 RT：同一目标原地读写未定义；GetTemporaryRT 由核心 API 托管生命周期。
+            // 临时 RT 用 source 的实际尺寸与格式（CopyTexture 要求源/目标同格式组，禁止 SRGB 混搭）
+            RenderTextureDescriptor desc = new RenderTextureDescriptor(w, h);
+            desc.graphicsFormat = source.rt.graphicsFormat;
+            desc.depthBufferBits = 0;
+            desc.msaaSamples = 1;
+
             int tmpId = Shader.PropertyToID("_DimensionTransitionTmp");
             cmd.GetTemporaryRT(tmpId, desc, FilterMode.Bilinear);
-            cmd.Blit(source, tmpId, material, 0);
-            cmd.Blit(tmpId, source);
+
+            // 材质实例设源纹理（不能用 SetGlobalTexture：材质实例的默认 _MainTex(white) 会覆盖全局值 → 全白）
+            material.SetTexture(s_MainTexId, source.rt);
+            cmd.SetRenderTarget(tmpId);
+            cmd.SetViewport(new Rect(0, 0, w, h));
+            cmd.DrawProcedural(Matrix4x4.identity, material, 0, MeshTopology.Triangles, 3, 1, null);
+
+            // 拷回：CopyTexture 纯纹理拷贝（无 shader、无视口语义）
+            cmd.CopyTexture(tmpId, source);
+
             cmd.ReleaseTemporaryRT(tmpId);
         }
         context.ExecuteCommandBuffer(cmd);
