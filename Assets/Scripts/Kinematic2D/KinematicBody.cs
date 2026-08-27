@@ -18,6 +18,17 @@ public class KinematicBody : MonoBehaviour
     // 命中，两种场景都覆盖不到；NonAlloc 取全部命中再自行筛选。数组每帧复用，无 GC。
     private RaycastHit2D[] hitBuffer;
 
+    // 斜坡状态（每帧 Move 重置）：OnSlope/SlopeAngle 上报到 LastResult；slopeNormalX 用于区分爬坡/下坡方向
+    private bool onSlope;
+    private float slopeAngle;
+    private float slopeNormalX;
+
+    // 移动平台状态（任务 8）：脚下命中平台时跟随其位移
+    private bool onMovingPlatform;
+    private Transform platformTransform;      // 当前脚下平台
+    private Transform platformPrevTransform;  // 上一帧脚下平台（同引用 = 连续站立，用于位移差起算）
+    private Vector2 platformPrevPos;          // 上一帧记录的平台位置（位移差基准）
+
     public CollisionResult LastResult { get; private set; }
 
     private void Awake()
@@ -64,6 +75,12 @@ public class KinematicBody : MonoBehaviour
         RefreshMapping();
         CollisionResult result = new CollisionResult();
 
+        // 斜坡状态每帧清零，由本帧射线填充（防上一帧残留）
+        onSlope = false;
+        slopeAngle = 0f;
+        slopeNormalX = 0f;
+        onMovingPlatform = false;
+
         // X 轴：水平移动检测与修正
         if (moveAmount.x != 0f)
             moveAmount = MoveHorizontally(moveAmount, ref result);
@@ -72,7 +89,31 @@ public class KinematicBody : MonoBehaviour
         if (moveAmount.y != 0f)
             moveAmount = MoveVertically(moveAmount, ref result);
 
+        // 移动平台跟随（任务 8）：脚下是平台时，把平台自上次物理帧以来的位移差叠加到自身位移。
+        // 为什么玩家侧缓存"上次平台位置"：平台组件的 FixedUpdate 与玩家 Move 的执行顺序不可控，
+        // 若平台先更新 lastPos，同帧玩家就读不到位差；玩家侧记录上帧平台位置，位移差 = 本次位置 - 上帧记录。
+        // 换平台/重新接住瞬间不叠加（以上帧记录为新基准），避免长期脱离后再接住时"瞬移大跳"。
+        if (onMovingPlatform && platformTransform != null)
+        {
+            Vector2 currentPos = (Vector2)platformTransform.position;
+            if (platformPrevTransform == platformTransform)
+            {
+                moveAmount += currentPos - platformPrevPos;
+            }
+            platformPrevPos = currentPos;
+            platformPrevTransform = platformTransform;
+        }
+        else
+        {
+            platformPrevTransform = null;
+        }
+
         transform.Translate(moveAmount, Space.World);
+
+        // 斜坡结果上报（OnSlope/SlopeAngle 由本帧水平或垂直命中的坡面填充）
+        result.OnSlope = onSlope;
+        result.SlopeAngle = slopeAngle;
+        result.OnMovingPlatform = onMovingPlatform;
         LastResult = result;
     }
 
@@ -113,6 +154,20 @@ public class KinematicBody : MonoBehaviour
 
             if (found)
             {
+                // 斜坡不构成水平阻挡：放行（记录坡面信息，hit 标志不置位）。
+                // 为什么放行：分轴迭代下"爬坡"由 X 前进 + Y 贴坡完成，水平方向若被坡面挡住会卡坡；
+                // 超过 maxSlopeAngle 的面（IsSlope=false）仍按墙修正（文档边界：>60° 按墙）。
+                if (SlopeResolver.IsSlope(best, config.maxSlopeAngle))
+                {
+                    if (!onSlope)
+                    {
+                        onSlope = true;
+                        slopeAngle = SlopeResolver.GetSlopeAngle(best);
+                        slopeNormalX = SlopeResolver.GetSlopeNormalX(best);
+                    }
+                    continue;
+                }
+
                 // 重叠/贴墙统一处理：避免旧实现的"distance==0 跳过"导致重叠时无法回退（穿墙根因）。
                 // 公式 (distance - skinWidth) * directionX 本身自洽：
                 //   distance > skinWidth → 正位移，正常前进贴墙；
@@ -125,6 +180,17 @@ public class KinematicBody : MonoBehaviour
                 result.HitLeft = directionX == -1;
                 result.HitRight = directionX == 1;
             }
+        }
+
+        // 爬坡预抬：沿坡面的竖直增量 = 水平位移 × tan(坡角)。
+        // 为什么必要：不预抬时 X 大步长直接把角色底部角推进坡面下方（嵌坡），
+        // 后续 Y 迭代只能从嵌坡位置下探（打不到坡面）→ 角色卡进坡体；
+        // 预抬后 Y 迭代以"向上"方向命中坡面并修正贴坡，高速也不啃坡。
+        // 仅爬坡方向预抬（法线与水平位移同号）：下坡方向由重力下落 + Y 贴坡天然顺滑，避免误抬浮起。
+        if (onSlope && moveAmount.x != 0f && Mathf.Sign(moveAmount.x) == Mathf.Sign(slopeNormalX))
+        {
+            float rise = Mathf.Tan(slopeAngle * Mathf.Deg2Rad) * Mathf.Abs(moveAmount.x);
+            moveAmount.y += rise;
         }
         return moveAmount;
     }
@@ -170,6 +236,15 @@ public class KinematicBody : MonoBehaviour
             {
                 if (hitBuffer[j].collider == boxCollider) continue;          // 自身盒自命中，跳过
                 if (filter != null && !filter.Allow(hitBuffer[j])) continue; // 维度过滤：被拒后继续找下一个最近的
+
+                // 单向板（任务 7）：带上行穿透——向上移动时命中"单向板"一律放行（射线会先后命中底面与顶面，
+                // 只放行底面会因顶面命中再次挡住，穿越失败）；向下移动命中顶面走正常修正 = 踩板。
+                // 为什么标签判定：纯法线判定无法区分"单向板顶面"与普通天花板底面（都朝下）。
+                if (directionY == 1f && hitBuffer[j].collider.CompareTag("OneWayPlatform"))
+                {
+                    continue;
+                }
+
                 if (hitBuffer[j].distance < bestDistance)                    // 取最近的有效命中
                 {
                     best = hitBuffer[j];
@@ -180,6 +255,28 @@ public class KinematicBody : MonoBehaviour
 
             if (found)
             {
+                // 移动平台标记（任务 8）：脚下命中是移动平台 → 记录引用，Move 尾部做跟随位移叠加
+                MovingPlatform mp = best.collider.GetComponent<MovingPlatform>();
+                if (mp != null)
+                {
+                    onMovingPlatform = true;
+                    platformTransform = best.transform;
+                }
+
+                // 坡面命中：记录坡状态（OnSlope/SlopeAngle 上报给上层）。
+                // 向上命中坡不设 HitCeiling——爬坡预抬后 Y 迭代会从顶角向上打到坡面，
+                // 那正是"沿坡上行"的贴坡修正，不是撞天花板；位移修正照常（贴坡距离）。
+                bool isSlope = SlopeResolver.IsSlope(best, config.maxSlopeAngle);
+                if (isSlope)
+                {
+                    if (!onSlope)
+                    {
+                        onSlope = true;
+                        slopeAngle = SlopeResolver.GetSlopeAngle(best);
+                        slopeNormalX = SlopeResolver.GetSlopeNormalX(best);
+                    }
+                }
+
                 // 与 MoveHorizontally 同根因同公式：不跳过 distance==0 的命中，
                 // 用 (distance - skinWidth) * directionY 自洽处理重叠（自动回退）。
                 moveAmount.y = (best.distance - config.skinWidth) * directionY;
@@ -187,7 +284,7 @@ public class KinematicBody : MonoBehaviour
                 rayLength = best.distance < rayLength ? best.distance : rayLength;
 
                 result.IsGrounded = directionY == -1;
-                result.HitCeiling = directionY == 1;
+                result.HitCeiling = directionY == 1 && !isSlope;
             }
         }
         return moveAmount;

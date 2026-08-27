@@ -6,6 +6,7 @@ TagManager:
   tags:
   - Trap
   - Wall
+  - OneWayPlatform
   layers:
   - Default
   - TransparentFX

@@ -17,4 +17,7 @@ public class RayConfig : ScriptableObject
 
     [Tooltip("碰撞检测层（地面/墙/平台）")]
     public LayerMask collisionMask;
+
+    [Tooltip("最大可行走坡角（度）：超过视为墙，不做爬坡换算（01-kinematic2d 边界：>60° 按墙）")]
+    public float maxSlopeAngle = 60f;
 }
