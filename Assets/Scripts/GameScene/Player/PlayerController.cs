@@ -85,6 +85,24 @@ public class PlayerController : MonoBehaviour
     //玩家死亡时广播（用于 SanityStatusHints 清除理智耗尽标记）
     public static event System.Action OnPlayerDied;
 
+    private void OnEnable()
+    {
+        // 暂停菜单开关订阅（配对退订见 OnDisable）：菜单打开时屏蔽玩家输入
+        GamePanel.OnPauseStateChanged += HandlePauseChanged;
+    }
+
+    private void OnDisable()
+    {
+        GamePanel.OnPauseStateChanged -= HandlePauseChanged;
+    }
+
+    private bool isPaused;
+
+    private void HandlePauseChanged(bool paused)
+    {
+        isPaused = paused;
+    }
+
     private void Awake()
     {
         // RB2D 仅作 Unity 回调事件源（OnTrigger/OnCollision 需要），不参与任何求解：
@@ -164,6 +182,15 @@ public class PlayerController : MonoBehaviour
     private void Update()
     {
         if (isDead) return;
+
+        // 暂停菜单打开：屏蔽玩家全部输入与状态推进（位移乘 deltaTime=0 本已静止，这里阻断
+        // 预览/切换等按键的副作用，并清掉可能残留的预览虚影）
+        if (isPaused)
+        {
+            if (isPreviewing) CancelPreview();
+            MoveInput = 0f;
+            return;
+        }
         MoveInput = Input.GetAxisRaw("Horizontal");
 
         //如果处于“战术定身”状态，拦截玩家的所有移动和跳跃输入
@@ -374,9 +401,13 @@ public class PlayerController : MonoBehaviour
     private void CancelPreview()
     {
         isPreviewing = false;
-        Time.timeScale = 1f;
-        Time.fixedDeltaTime = 0.02f;
         WorldState.Instance.SetPreview(false);
+        // 恢复时间缩放；暂停菜单开着时保持冻结（timeScale=0 由 SettingPanel 关闭时统一恢复）
+        if (!isPaused)
+        {
+            Time.timeScale = 1f;
+            Time.fixedDeltaTime = 0.02f;
+        }
     }
 
     /// <summary>
@@ -406,8 +437,8 @@ public class PlayerController : MonoBehaviour
         // 5.停顿 0.15 秒（不受 Time.timeScale 影响的真实时间）
         yield return new WaitForSecondsRealtime(0.15f);
 
-        // 6. 恢复时间，动量完美继承
-        Time.timeScale = 1f;
+        // 6. 恢复时间，动量完美继承（暂停菜单开着则保持冻结，由菜单负责恢复）
+        Time.timeScale = isPaused ? 0f : 1f;
         Time.fixedDeltaTime = 0.02f;
     }
 

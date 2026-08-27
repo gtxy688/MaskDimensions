@@ -25,6 +25,15 @@ public class SettingPanel : BasePanel
     private float cachedVolume = 1f;
     private float cachedSound = 1f;
 
+    // 任何关闭路径（关闭按钮 / ESC / 返回标题）都收敛到销毁：统一恢复游戏时间并广播解除暂停。
+    // 为什么放 OnDestroy 而不是各按钮回调：多入口只写一处，且不被中途复用遗漏。
+    private void OnDestroy()
+    {
+        Time.timeScale = 1f;
+        Time.fixedDeltaTime = 0.02f;
+        GamePanel.BroadcastPauseState(false);
+    }
+
     // 重写 BasePanel 的初始化方法
     public override void Init()
     {
