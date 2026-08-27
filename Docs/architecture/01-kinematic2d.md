@@ -59,6 +59,13 @@ interface ICollisionFilter
 7. **不产生 GC 压力**：射线数组/临时数据避免每帧分配（面试点）。
 8. **场景出生位置不得与地形重叠**：出生时与墙/天花板重叠会导致首帧检测混乱；物体出生点应贴地或留出 SkinWidth 余量。
 9. **复合碰撞体内侧起点会隧道穿透（任务 4 实测）**：Composite Collider 2D（geometryType=Outlines）的**内侧起点即使 `queriesStartInColliders=true` 也不报告命中**——向下射线会直接穿越空心区域打到对侧外轮廓（实测：起点在表面上表面内侧 1.5cm → 命中该复合体底部 y=-6 边框，即"穿越地面"现象）。**防护**：向下移动分支必须先做"脚底上探"（2×skinWidth，走过滤器）——紧贴放行表面则判贴地、微上推、本帧不隧道（MoveVertically 已实装）。凡遇到复合碰撞体地面（Tilemap + CompositeCollider）的关卡必须依赖此防护。
+10. **斜坡（任务 6，SlopeResolver）**：坡面判定 = 命中法线朝上（n.y>0）且仰角 < `maxSlopeAngle`（60°，>60° 按墙）。分轴迭代内斜坡三步法：
+    - 水平命中坡面**放行不挡**（记录坡信息；只放行可走斜坡，超角按墙修正）
+    - **爬坡预抬** `moveAmount.y += tan(坡角)×|moveAmount.x|`（仅爬坡方向，法线与水平位移同号；不预抬会嵌坡）
+    - 垂直命中坡面**贴坡修正**；向上命中坡**不置 HitCeiling**（预抬后的上行贴坡不是撞顶）
+    - `OnSlope / SlopeAngle` 每帧上报（Move 开头清零防残留）
+11. **单向板（任务 7）**：标签 `OneWayPlatform`。向上移动命中该标签 collider **一律放行**（向上射线会先后命中底面与顶面，只放行底面会被顶面再次挡住无法穿越）；向下命中顶面走正常修正 = 踩板。
+12. **移动平台（任务 8，MovingPlatform）**：平台往返组件 + 玩家侧缓存位移差跟随——`moveAmount += (平台当前位 - 上帧记录位)`，**缓存必须放玩家侧**（平台组件/玩家的 FixedUpdate 顺序不可控，平台侧 lastPos 会产生竞态）；重新接住瞬间不叠加（防脱离后瞬移大跳）；`OnMovingPlatform` 每帧上报。
 
 ## 依赖
 

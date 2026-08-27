@@ -12,7 +12,7 @@
 **目标**：自研 2D 运动学物理（Kinematic2D）+ 维度渲染差异化
 **分支**：master
 **执行模式**：subagent-driven-development（AI 实现 → 任务审查 → 用户在 Unity 手动验收 → 验收通过才 commit）
-**当前进度**：任务 11/16 完成 ✅（任务 1~5、9、11 已验收；任务 9 为 AI 自主验收，任务 11 为用户手动验收）
+**当前进度**：任务 1~11 / 16 全部完成 ✅（渲染线 9-10-11 + 物理增量 6-8 已验收；任务 10 与任务 6-8 为用户手动验收）
 
 ## 二、任务状态表
 
@@ -23,11 +23,11 @@
 | 3 | 维度系统（WorldState + 过滤器 + 事件迁移） | ✅ 完成（已验收） | `3e605bf`（+chore `04a2d08`） |
 | 4 | 玩家接入 KinematicBody（移除 Rigidbody2D 驱动） | ✅ 完成（已验收） | `912d704` |
 | 5 | 手感回归（土狼时间/跳缓冲/顿帧） | ✅ 完成（已验收） | `6f0cff3` |
-| 6 | 斜坡（SlopeResolver） | 待办（用户决定渲染线先行，顺延） | — |
-| 7 | 单向板 | 待办（同顺延） | — |
-| 8 | 移动平台 | 待办（同顺延） | — |
+| 6 | 斜坡（SlopeResolver） | ✅ 完成（已验收） | `4596477` |
+| 7 | 单向板 | ✅ 完成（已验收） | `4596477` |
+| 8 | 移动平台 | ✅ 完成（已验收） | `4596477` |
 | 9 | 渲染线1：双 Volume 维度过渡 | ✅ 完成（自主验收通过） | `bcf3b40` |
-| 10 | 渲染线2：URP 2D Light | 待办 | — |
+| 10 | 渲染线2：URP 2D Light | ✅ 完成（已验收） | `305ea22` |
 | 11 | 渲染线3：自写 Renderer Feature 转场 shader | ✅ 完成（已验收） | `c75c96c` |
 | 12 | RoomConfigSO 扩展 | 待办 | — |
 | 13 | 关卡 L1 重做 | 待办 | — |
@@ -104,6 +104,22 @@
 
 **⚠️ 顿帧语义订正（审查者核实）**：timeScale=0 时 Unity 固定步停摆（FixedUpdate 不运行），顿帧期间 Velocity/LastResult 原样保留——"动量完美继承"字面成立（子代理报告曾误述"FixedUpdate 仍运行累积 1.5m/s"，已驳回）。
 
+### 任务 6-8：物理增量——斜坡 / 单向板 / 移动平台（已提交 `4596477`）
+
+**交付**（`Assets/Scripts/Kinematic2D/`）：
+- `SlopeResolver.cs`（新）：静态坡面判定工具——`GetSlopeAngle`（法线 atn2 换算）/`IsSlope`（法线朝上且 < maxSlopeAngle，>60° 按墙）/`GetSlopeNormalX`（坡向，判爬坡/下坡方向）
+- `RayConfig.cs`：+`maxSlopeAngle = 60`（01-kinematic2d 边界：>60° 按墙）
+- `KinematicBody.cs` 斜坡集成（**分轴迭代内的斜坡三步法**，面试可讲）：
+  1. **水平放行**：水平射线命中坡面不计为墙（否则卡坡），只记录坡信息
+  2. **爬坡预抬**：`moveAmount.y += tan(坡角)×|moveAmount.x|`——不预抬时大步长会把底角推进坡面下方（嵌坡 → Y 下探打不到坡 → 卡进坡体）；仅爬坡方向（法线×水平位移同号）预抬，下坡由重力+贴坡天然顺滑
+  3. **垂直贴坡**：Y 迭代命中坡 → 正常位移修正贴坡；**向上命中坡不置 HitCeiling**（爬坡预抬后向上射线打坡是"沿坡上行"的贴坡，不是撞顶）
+  - `OnSlope / SlopeAngle` 上报 LastResult（字段原占位，本任务实装）
+- 单向板（任务 7）：MoveVertically 向上命中标签 `OneWayPlatform` 的 collider 一律放行（**为什么全放行**：向上射线先后命中底面+顶面，只放行底面会被顶面再次挡住无法穿越）；向下命中顶面走正常修正 = 踩板；标签已注册 ProjectSettings/TagManager
+- `MovingPlatform.cs`（新，任务 8）：pingpong 往返移动组件（轴/距离/速度序列化）
+- `KinematicBody` 平台跟随（**玩家侧缓存位移差**，面试可讲）：Move 尾部把"平台自上次物理帧以来位移差"叠加进 moveAmount——缓存放在玩家侧而非平台侧，**免疫 FixedUpdate 执行顺序**（平台组件先/后更新 lastPos 都正确）；重新接住瞬间不叠加（防脱离后瞬移大跳）；`OnMovingPlatform` 上报
+
+**验收（用户手动 Play，色块测试区）**：30° 绿坡爬坡/下坡顺滑不啃坡、85° 红陡坡按墙挡、黄单向板下穿（跳起穿过不撞头）/上踩（下落站稳）、蓝移动平台跳上站定跟随移动/跳下自由落体——全部通过；测试区为临时色块（验收后已删除，正式关卡在任务 12-15 用 Tilemap 重做）。
+
 ### 任务 9：渲染线1——双 Volume 维度过渡（已提交 `bcf3b40`）
 
 **交付**：
@@ -171,14 +187,27 @@
 
 **验收通过（2026-08-27，用户手动 Play）**：按 J → 撕裂/扫屏转场全屏播放（0.4s）、**画面方向与平时一致（不再颠倒）**、错位断层/光带/滤镜过渡正常、无残留、顿帧期间继续 —— 用户确认"验收完毕"。
 
-### 任务 10 要点（渲染线 2：URP 2D Light）
-- 目标：表世界明亮（Global Light 2D 高亮度）、里世界昏暗 + 局部光源（玩家持灯挂子物体），光照切换与维度事件同步。**禁止"后处理调亮度"当光照**（03-rendering 硬约束 5）。
-- 开工前确认：当前 URP 用的是 `UniversalRendererData`（3D renderer，`Assets/ArtRes/URP/`）——**3D renderer 不支持 Light 2D**，需先评估迁移 2D Renderer 的影响（2D Renderer 后处理支持 FilmGrain/Vignette/ColorAdj 已验证的思路，但 Bloom 等差异要注意）。
-- 依赖：02-dimension 事件（同任务 9 订阅模式）；可考虑 `DimensionLightController` 订阅 `OnMaskStateChanged` 同步 Global Light 2D 参数。
+### 任务 10：渲染线2——URP 2D 光照双世界（已提交 `305ea22`，用户手动验收通过）
+
+**前置裁定（开工卡点）**：3D Renderer（UniversalRendererData）不支持 Light 2D → **整体迁移 2D Renderer**。迁移前源码级验证（Renderer2D.cs 检查）：2D Renderer **含 PostProcessPass（Volume 后处理 ✓，任务 9 兼容）+ BeforeRenderingPostProcessing event（自定义 Renderer Feature ✓，任务 11 兼容）+ Render2DLightingPass（Light 2D ✓）**——本地源码证据，非猜测。
+
+**交付**：
+- `Assets/ArtRes/URP/URP2DRenderer.asset`（新）：2D Renderer 资产（反射调官方工厂 `UniversalRenderPipelineAsset.CreateRendererAsset`，internal API via reflection）
+- 管线切换：`New Universal Render Pipeline Asset.asset` 的 `m_RendererDataList[0]` → 2D Renderer（SerializedObject 修改资产）
+- 转场 Feature 迁移：新 Feature 实例 AddObjectToAsset 挂 2D Renderer（参数与旧资产默认值一致，旧 3D Renderer 资产保留作回滚）
+- `DimensionLightController.cs`（新）：双 Global Light 2D 强度交叉（unscaledDeltaTime 0.4s 与滤镜同长，顿帧兼容）＋ **玩家持灯运行时创建**（Point Light 2D 挂玩家 GameObject，暖色 1.3，里世界开启；免 prefab 编辑）
+- 场景接线：GameScene 双 GlobalLight（亮 1.0 / 暗 0.12）+ DimensionLightController + BeginScene 恒亮 GlobalLight
+- **精灵材质全量迁移**：场景 15 处 + prefab 18 处（7 个 prefab）默认材质 → `URP2D_SpriteLit.mat` / `URP2D_TilemapLit.mat`（`Universal Render Pipeline/2D/Sprite-Lit-Default`）——**2D 光照只对 Lit 材质生效**，内置 Sprites/Default 不受光；`New Material.mat` 与 M_DimensionSprite（模板门）不换（跳过非默认材质）
+
+**验证**（编辑模式手动渲染像素统计）：
+- 迁移前基线 avgRGB=(0.280,0.347,0.516) avgSat=0.632（冷蓝 = 表世界滤镜在位）
+- 迁移后（2D Renderer + 灯光 + Lit 材质）**同基线 avgSat=0.632、nonBlack=100%** → 渲染链/后处理/Sprite-Lit 无破坏 ✓
+- 用户 Play 验收：里世界变暗 + 玩家暖灯晕、转场/滤镜/菜单全正常 ✓
+
+**⚠️ 经验（面试可讲）**：3D Renderer 里的内置 CG 精灵 shader 换成 2D Renderer 后照常渲染（URP 兼容内置非光照 shader）；2D 光照差异化 = 材质(Lit) × 灯光(Global/Point) × 事件驱动(订阅维度)，缺一不可。
 
 ### 后续任务预告
-- 任务 10（渲染线 2）：URP 2D Light 双世界光照（先确认 Renderer 2D 迁移方案；Global Light ×2 + 玩家持灯；DimensionLightController）。
-- 渲染线后再回物理增量 6~8（斜坡 M2 风险预判已记于本项目文档）。
+- 任务 12（RoomConfigSO 扩展）→ 13/14/15（关卡 L1/L2/L3 Tilemap 重做）→ 16（性能数据 + README + 面试提纲）。关卡重做可直接使用任务 6-8 的斜坡/单向板/移动平台能力与任务 10 的 2D 光照。
 
 ### 执行须知
 - **工作流**：AI 实现 → 附验收清单 → 用户在 Unity 手动验收 → 验收通过才 commit（禁止 AI 自行提交）。**例外**：用户可委托 AI 自主验收（如任务 9：MCP 进 Play + 截图像素对比），委托时 AI 验收通过即 commit。
@@ -190,6 +219,7 @@
 - [x] 任务 3（维度系统，`3e605bf`）
 - [x] 任务 4（玩家接入 KinematicBody，`912d704`）
 - [x] 任务 5（手感回归，`6f0cff3`）
-- [ ] 任务 9~11（渲染线）→ 6~8（物理增量）→ 12~16 按新顺序执行
+- [x] 任务 1~11（含任务 6-8 物理增量、9-11 渲染线）全部验收
+- [ ] 任务 12~16（关卡重做 + 收尾）按新顺序执行
 - [ ] 每完成一任务更新本文件和 `.superpowers/sdd/.../progress.md`
 - [ ] 全 16 任务完成后：最终代码审查 + finishing-a-development-branch
