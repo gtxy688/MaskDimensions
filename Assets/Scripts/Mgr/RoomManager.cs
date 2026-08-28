@@ -12,6 +12,11 @@ public class RoomManager : SingletonMono<RoomManager>
     private RoomTrigger currentRoom;
     private GameObject player;
 
+    /// <summary>当前房间的理智消耗倍率（RoomConfigSO.sanityDrainMultiplier，L3 压力用）。
+    /// 无房间/无配置时 1——PlayerController 理智流逝读取，禁止硬编码倍率（数据驱动硬约束）。</summary>
+    public float CurrentSanityMultiplier =>
+        currentRoom != null && currentRoom.roomConfig != null ? currentRoom.roomConfig.sanityDrainMultiplier : 1f;
+
     protected override void Awake()
     {
         base.Awake();
@@ -76,7 +81,12 @@ public class RoomManager : SingletonMono<RoomManager>
         {
             var pc = playerGo.GetComponent<PlayerController>();
             if (pc != null)
+            {
                 pc.ResetForNewRoom(trigger.playerSpawnPos);
+                // 维度强制（RoomConfigSO.dimensionRequirement）：重置流程固定回表世界，
+                // 要求里世界的房间在此矫正；面具视觉同步在玩家侧（faceMaskObject 由玩家持有）
+                pc.EnforceRoomDimension(trigger.roomConfig != null ? trigger.roomConfig.dimensionRequirement : 0);
+            }
         }
 
         // 激活房间子物体（如 BulletSpawner）

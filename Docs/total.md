@@ -23,8 +23,17 @@
 
 ---
 
-## 待决策（后续补充）
+## 2026-08-28：任务 12-16 完成（关卡线 + 收尾）
 
-- [ ] 物理打穿后是否补性能数据（Profiler 对比），把对象池重新变回简历卖点？
-- [ ] 渲染线三条全部做，还是先做后处理 + 光照两条？（第三条转场 shader 工作量大）
-- [ ] 关卡设计细节：L1/L2/L3 的具体玩法蓝图（进入 writing-plans 阶段再定）
+**背景**：物理线（1-5）、渲染线（6-11）验收完毕后，完成剩余的关卡重建（12-15）与收尾（16）。
+
+**决策**：
+1. RoomConfigSO 扩展落地：`dimensionRequirement`（0/1/2）+ `sanityDrainMultiplier`；维度强制放在 `RoomManager.ActivateRoom` → `PlayerController.EnforceRoomDimension`（面具视觉同步在玩家侧）；理智倍率由 `RoomManager.CurrentSanityMultiplier` 供出
+2. 关卡由编辑器工具 `LevelRebuildTool` 数据驱动生成（矩形/斜坡/特殊物规格 → 9 房间一键重建），不手绘 Tilemap——可复现、可审查、工具即设计文档
+3. 关卡蓝图：L1 断桥/表墙里路/三岛连切，L2 唯一坡道/坡末跨沟/切里保动量落里平台/单向板顶穿，L3 表里表连切解谜 + **进房即里世界的限时通道**（dimensionRequirement=2 首个实际使用者，理智 2.5 倍预算 ≈2s，耗尽弹回落尖刺=重来）
+4. 斜坡实现定式：楔形 tile（程序生成，无碰撞）只管视觉，`PolygonCollider2D` 三角形是物理真值——贴图集没有 45° 斜坡砖，且"方形砖阶梯会被运动学射线当墙"
+5. 性能数据（任务 16）采取"README 给采集方法 + 待填表格"：需要 Play 模式 Profiler 实测，AI 不代替实测、不用估数充数（呼应 D11：没数据不吹对象池）
+6. **修复任务 10 的场景接线丢失回归**：磁盘上的 GameScene 从未包含"双 Global Light + DimensionLightController"（用户 Play 验收过但未落盘/被还原），本次随关卡重建补回
+7. 顺带清理：任务 2 遗留的 `PhysTest_Task2.unity` 测试脚手架已删（账本本就标记"不提交"）
+
+**动机记录**：关卡是技术点的展示舞台——9 个房间每个机制都有"不用它过不去"的瞬间；数据驱动的关卡生成器让"改关卡"变成改一段规格而不是摆一晚上砖。

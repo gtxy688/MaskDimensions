@@ -12,4 +12,11 @@ public class RoomConfigSO : ScriptableObject
 
     [Header("BGM")]
     public AudioClip bgmOverride;
+
+    [Header("维度要求（关卡重做新增）")]
+    [Tooltip("0=不限制，1=必须表世界，2=必须里世界；进入时若不满足则自动切换")]
+    public int dimensionRequirement = 0;
+
+    [Tooltip("理智消耗倍率（L3 压力用，默认 1）")]
+    public float sanityDrainMultiplier = 1f;
 }

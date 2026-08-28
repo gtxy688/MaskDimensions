@@ -10,10 +10,12 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 8fccc4aa095af1c47b34ca0bb5c72341, type: 3}
-  m_Name: Room_Bullet
+  m_Name: Room_L2_Apply
   m_EditorClassIdentifier: 
-  roomName: "\u7B2C\u4E8C\u5173\uFF1A\u67AA\u6797\u5F39\u96E8"
-  description: "\"\u8868\u4E16\u754C\u7684\u5B50\u5F39\u903C\u8FEB\u4F60\u4E0D\u65AD\u5207\u6362\u4E16\u754C\""
-  bulletStats: {fileID: 11400000, guid: 7f2d073f8bf0a0a4da5b5bc433076f6b, type: 2}
-  fireInterval: 3
+  roomName: "L2\xB7\u5E94\u7528"
+  description: "\u5761\u672B\u8D77\u8DF3\u8DE8\u6C9F + \u5355\u5411\u677F\u9876\u7A7F"
+  bulletStats: {fileID: 0}
+  fireInterval: 1
   bgmOverride: {fileID: 0}
+  dimensionRequirement: 0
+  sanityDrainMultiplier: 1

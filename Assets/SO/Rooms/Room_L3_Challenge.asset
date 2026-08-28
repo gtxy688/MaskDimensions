@@ -1,0 +1,22 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8fccc4aa095af1c47b34ca0bb5c72341, type: 3}
+  m_Name: Room_L3_Challenge
+  m_EditorClassIdentifier: 
+  roomName: "L3\xB7\u6311\u6218\xB7\u65AD\u7AE0"
+  description: "\u8FDB\u623F\u5373\u91CC\u4E16\u754C\uFF1A\u9650\u65F6\u901A\u9053\uFF08\u7406\u667A
+    2.5 \u500D\uFF09+ \u5F39\u5E55"
+  bulletStats: {fileID: 11400000, guid: 7f2d073f8bf0a0a4da5b5bc433076f6b, type: 2}
+  fireInterval: 0.5
+  bgmOverride: {fileID: 0}
+  dimensionRequirement: 2
+  sanityDrainMultiplier: 2.5

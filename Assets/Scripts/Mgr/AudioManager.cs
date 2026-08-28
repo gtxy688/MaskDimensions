@@ -24,9 +24,27 @@ public class AudioManager : SingletonMono<AudioManager>
     [SerializeField] private string volumeKey = "Volume";
     [SerializeField] private string soundKey  = "Sound";
 
+    // 基准音量：捕获 Inspector 里 AudioSource.volume 的初始值（BGM 母带偏响时直接在源上调小），
+    // 最终音量 = 基准 × 玩家设置滑条（PlayerPrefs）。为什么必须捕获：ApplyVolumeSettings 会把
+    // PlayerPrefs 值（默认 1）写回源音量，Inspector 配置一运行就被顶掉。
+    private float baseMenu, baseNormal, baseVoid, baseSfx = 1f;
+    private bool baseCaptured;
+
+    /// <summary>为什么懒捕获：PlayDualBGM 可能先于本类 Start 执行（跨物体 Start 顺序未定义），
+    /// 此时字段还是默认 0，直接套公式会静音；捕获本身在"写音量之前"做，读到的必然是 Inspector 值。</summary>
+    private void EnsureBaseCaptured()
+    {
+        if (baseCaptured) return;
+        baseMenu   = bgmSourceMenu   != null ? bgmSourceMenu.volume   : 1f;
+        baseNormal = bgmSourceNormal != null ? bgmSourceNormal.volume : 1f;
+        baseVoid   = bgmSourceVoid   != null ? bgmSourceVoid.volume   : 1f;
+        baseSfx    = sfxSource       != null ? sfxSource.volume       : 1f;
+        baseCaptured = true;
+    }
+
     private void Start()
     {
-        // 1. 从 PlayerPrefs 读取音量并应用
+        // 1. 从 PlayerPrefs 读取音量并应用（最终音量 = 基准 × 滑条）
         ApplyVolumeSettings();
 
         // 2. 如果在开始界面，播放菜单音乐
@@ -97,9 +115,8 @@ public class AudioManager : SingletonMono<AudioManager>
         bgmSourceNormal.clip = normalClip;
         bgmSourceVoid.clip = voidClip;
 
-        // 从 PlayerPrefs 读取音量（由 SettingPanel 设置）
-        bgmSourceNormal.volume = PlayerPrefs.GetFloat(volumeKey, 1f);
-        bgmSourceVoid.volume   = PlayerPrefs.GetFloat(volumeKey, 1f);
+        // 音量统一走 ApplyVolumeSettings（基准 × 玩家滑条），不在此处直读 PlayerPrefs
+        ApplyVolumeSettings();
 
         // 初始状态：表世界播放，里世界静默但不调用 Play（省性能）
         bgmSourceNormal.Play();
@@ -163,15 +180,17 @@ public class AudioManager : SingletonMono<AudioManager>
     /// <summary>
     /// 从 PlayerPrefs 重新读取音量并应用到所有 AudioSource。
     /// 供 SettingPanel 在滑动条变化时调用。
+    /// 最终音量 = Inspector 基准音量（Start 捕获）× 玩家滑条（PlayerPrefs，默认 1）。
     /// </summary>
     public void ApplyVolumeSettings()
     {
-        float bgmVol = PlayerPrefs.GetFloat(volumeKey, 1f);
-        float sfxVol = PlayerPrefs.GetFloat(soundKey, 1f);
+        EnsureBaseCaptured();
+        float bgmSlider = PlayerPrefs.GetFloat(volumeKey, 1f);
+        float sfxSlider = PlayerPrefs.GetFloat(soundKey, 1f);
 
-        if (bgmSourceMenu   != null) bgmSourceMenu.volume   = bgmVol;
-        if (bgmSourceNormal != null) bgmSourceNormal.volume = bgmVol;
-        if (bgmSourceVoid   != null) bgmSourceVoid.volume   = bgmVol;
-        if (sfxSource       != null) sfxSource.volume       = sfxVol;
+        if (bgmSourceMenu   != null) bgmSourceMenu.volume   = baseMenu   * bgmSlider;
+        if (bgmSourceNormal != null) bgmSourceNormal.volume = baseNormal * bgmSlider;
+        if (bgmSourceVoid   != null) bgmSourceVoid.volume   = baseVoid   * bgmSlider;
+        if (sfxSource       != null) sfxSource.volume       = baseSfx    * sfxSlider;
     }
 }

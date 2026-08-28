@@ -2,7 +2,7 @@
 
 > 本文件是**项目级进度总览**（用户可见、新对话可直接读取）。
 > 子代理执行的详细账本在 `.superpowers/sdd/2026-08-24-mask-dimensions-deep-rework/progress.md`（隐藏目录，同为权威记录）。
-> 最后更新：2026-08-27
+> 最后更新：2026-08-28
 
 ---
 
@@ -12,7 +12,7 @@
 **目标**：自研 2D 运动学物理（Kinematic2D）+ 维度渲染差异化
 **分支**：master
 **执行模式**：subagent-driven-development（AI 实现 → 任务审查 → 用户在 Unity 手动验收 → 验收通过才 commit）
-**当前进度**：任务 1~11 / 16 全部完成 ✅（渲染线 9-10-11 + 物理增量 6-8 已验收；任务 10 与任务 6-8 为用户手动验收）
+**当前进度**：任务 1~15 全部实现完成；任务 16 完成文档部分（README/面试提纲/total.md），性能数据待用户 Play 实测。**任务 12~16 整体待用户 Unity 验收**（本次未提交）。
 
 ## 二、任务状态表
 
@@ -29,11 +29,11 @@
 | 9 | 渲染线1：双 Volume 维度过渡 | ✅ 完成（自主验收通过） | `bcf3b40` |
 | 10 | 渲染线2：URP 2D Light | ✅ 完成（已验收） | `305ea22` |
 | 11 | 渲染线3：自写 Renderer Feature 转场 shader | ✅ 完成（已验收） | `c75c96c` |
-| 12 | RoomConfigSO 扩展 | 待办 | — |
-| 13 | 关卡 L1 重做 | 待办 | — |
-| 14 | 关卡 L2 重做 | 待办 | — |
-| 15 | 关卡 L3 重做 | 待办 | — |
-| 16 | 性能数据 + README + 面试提纲 | 待办 | — |
+| 12 | RoomConfigSO 扩展 | 🟡 已实现（待验收） | — |
+| 13 | 关卡 L1 重做 | 🟡 已实现（待验收） | — |
+| 14 | 关卡 L2 重做 | 🟡 已实现（待验收） | — |
+| 15 | 关卡 L3 重做 | 🟡 已实现（待验收） | — |
+| 16 | 性能数据 + README + 面试提纲 | 🟡 文档完成；性能数据待实测（见 README 采集指南） | — |
 
 ## 三、已完成任务详情
 
@@ -149,15 +149,49 @@
 - 切换故障：新增 `GlitchProfile.asset`（ChromaticAberration 0.9）+ 场景 GlitchVolume + 控制器 `glitchVolume` 驱动（切换瞬间拉满 → 0.2s 消退，unscaledDeltaTime）
 - **编辑模式三态截图像素验证**：表 avgSat=0.631（B 通道主导 0.518=冷蓝）vs 里 avgSat=0.182（饱和 -71%）vs 故障帧中间态——辨识度远超旧参数（旧仅 -31%）；视觉参数资产级，Play 克隆一致
 
+### 任务 12-15：RoomConfigSO 扩展 + 三关重做（2026-08-28 实现完成，待用户验收）
+
+**任务 12 交付**（代码 3 文件）：
+- `RoomConfigSO.cs`：+`dimensionRequirement`（0/1/2）+`sanityDrainMultiplier`（默认 1）
+- `RoomManager.cs`：+`CurrentSanityMultiplier` 属性（无房间兜底 1）；`ActivateRoom` 在 ResetForNewRoom 后调 `pc.EnforceRoomDimension(cfg.dimensionRequirement)`
+- `PlayerController.cs`：理智流逝乘房间倍率；+`EnforceRoomDimension(int)`（要求里世界则进房即戴面具，faceMask 视觉同步在玩家侧——自动切换不走手动协程）
+
+**任务 13-15 交付**（关卡由编辑器工具数据驱动生成）：
+- `Assets/Editor/Tools/LevelRebuildTool.cs`（新）：9 房间规格（矩形填充 + 45° 斜坡线段 + 移动平台/弹幕列表）→ 一键重建 + 灯光接线 + 存场景；菜单 Tools → Level Rebuild
+- `GameScene.unity`：旧三关（Room_1/2/3 prefab 实例）删除，新 9 房间链 L1_Teach→…→L3_Challenge(EndGame)；每房 = RoomTrigger(入口)+PlayerSpawn+RoomVcam(静态机位 y=-1.5, ortho 9.8)+RoomExit/EndGame+Grid 六张维度 Tilemap（Ground/OldGround/NewGround/OldTrap/NewTrap/OneWay，层 7/3/9，Lit 材质，Composite Polygons）
+- `Assets/SO/Rooms/Room_L1_Teach … Room_L3_Challenge.asset`（9 个新 RoomConfigSO）：L1C 理智 1.5×；L2C 2×+弹幕 0.7s；L3A 2×；L3C **dimensionRequirement=2** + 2.5× + 弹幕 0.5s
+- 斜坡定式：程序生成楔形 tile（Gen/SlopeUp/Down，colliderType=None）只管视觉 + `PolygonCollider2D` 三角形作物理真值（贴图集无 45° 砖；方形砖阶梯会被射线当墙）
+- 旧资产清理：3 个旧房间 prefab + 3 个旧 Room SO 删除；`PhysTest_Task2.unity`（任务 2 测试脚手架遗留）删除
+
+**机制必过点位（验收对表用）**：
+- L1：断桥只里世界有桥（Teach 安全版/Apply 尖刺版）；表墙切里穿；表尖刺带里世界通行；挑战段尖刺场上 表岛→里岛→表岛 两次空中切换
+- L2：Teach 唯一上山路=45°坡 + 移动平台跨 9 格沟；Apply **台顶起跳 +4.2 < +5 必死、坡末起跳 +6.2 过**（下坡动量机制必过）+ 单向板坑道顶穿越墙；Challenge 坡末切里保动量落里世界平台（落点只有里世界有）+ 弹幕
+- L3：Teach 坡+单向板+短里桥热身；Apply 表台→(切里)里岛→(切表)表岛 三连解谜（坑内尖刺随世界换向）；Challenge **进房即里世界**（dimensionRequirement=2），限时通道预算 ≈2.0s（冲刺 0.3s+通道 1.4s，贴线可过），耗尽强制弹回=落表尖刺死亡重来，弹幕 0.5s，EndGame 收尾
+
+**⚠️ 本轮发现并修复的问题**：
+1. **任务 10 灯光接线丢失回归**：磁盘 GameScene 从未有双 GlobalLight/DimensionLightController（当时用户 Play 验收过但场景未落盘）→ 本轮 EnsureLights 补回（GlobalLight_Real 1.0 / GlobalLight_Mask 0.12 + 控制器接线）。双 Global Light 并存的 console 警告为良性（运行时亮光强度交叉承担变暗，与已验收行为一致）
+2. **Rooms 父物体带历史偏移 (3.02,3.49)**（旧 Grid 手工挪动残留）→ 工具内归零，房间坐标与设计稿一致
+3. RoomTrigger 加宽至 6 单位覆盖出生点——否则 L3C 出生点在触发器外，首次进房不触发 EnterRoom、弹幕生成器不激活
+4. 砖块索引按"平均色表"实测选定（`_16` 等是透明装饰切片不可作地形）；顶砖判定用最终占用状态（挖空后再判）
+
+**验证**：编辑模式手动渲染 9 房间截图逐张核对（Temp/levelshots/）+ 静态断言全绿（层/标签/触发器/引用/遮罩/合成碰撞体/spawner 初始停用/出生点在触发器内，errors=0）。
+
+### 任务 16：性能数据 + README + 面试提纲（文档完成，数据待实测）
+
+- `README.md`（新）：玩法 30 秒 + 三大技术亮点 + 架构引用 + 性能数据表（**待实测**，附 Profiler 采集指南）+ 运行方式 + 关卡结构表
+- `Docs/interview-prep.md`（新）：D1~D12 每条"面试官问题 + 3 句话答案" + 7 个真实 bug STAR 故事（SyncTransforms 穿墙/复合体隧道/overrideState 三层坑/转场四轮/Awake 顺序 NRE/Kinematic 接触回调/旧项目粘墙与进不了下一关）+ 追问防线
+- `Docs/total.md`：追加 2026-08-28 决策记录（关卡工具化/斜坡定式/性能数据不估数原则等 7 条）
+- 性能数据需要用户 Play + Profiler 实测（MCP 进 Play 有失联风险，AI 不代测）：按 README 表格采集后回填，同时可回应 total.md 待决策"对象池是否重新变回卖点"
+
 ## 四、给新对话的交接说明
 
-> 从 **任务 10（渲染线 2：URP 2D Light）** 开始继续执行。**执行顺序（用户已调整）**：渲染线（9→10→11）先行，物理增量（6→8）顺延，关卡（12→15）与收尾（16）不变。
+> 任务 12~16 已全部实现，**等待用户 Unity 验收**（清单已交付，见 `Docs/tests/04-levels-test.md` + 交付说明）。验收通过后按模块 commit；性能数据实测后回填 README。
+> 重建关卡用菜单 Tools → Level Rebuild → 重建关卡 L1-L3（幂等，会先清旧 L* 房间）。
 
-### 新对话必读文件（按顺序）
-1. `Docs/superpowers/plans/2026-08-24-mask-dimensions-deep-rework.md` —— 16 任务实施计划全文（任务 9 段：步骤 1 代码、步骤 2 场景配置、步骤 3 删旧脚本）
-2. `.superpowers/sdd/2026-08-24-mask-dimensions-deep-rework/progress.md` —— 子代理执行账本（任务状态、调试教训、全部裁定、产物位置）
-3. `Docs/architecture/03-rendering.md` + `Docs/tests/03-rendering-test.md` —— 任务 9 架构/验收文档
-4. `.superpowers/sdd/2026-08-24-mask-dimensions-deep-rework/task-9-brief.md` —— 任务 9 简报（已含控制者补充需求 E1~E5）
+### 执行须知
+- **工作流**：AI 实现 → 附验收清单 → 用户在 Unity 手动验收 → 验收通过才 commit（禁止 AI 自行提交）。**例外**：用户可委托 AI 自主验收（如任务 9）。
+- commit 用中文规范（type 英文 + scope/description 中文）
+- **MCP**：`set_active_instance` 选 `Mask Dimensions@5092658667197165`（本会话已验证可用）；execute_code 帧 frozen；改资产必须在编辑模式；进 Play 有失联风险（账本任务 9 教训）
 
 ### 任务 9 已完成（2026-08-27，用户委托 AI 自主验收通过）
 - 实现 = `Assets/Scripts/Rendering/DimensionVolumeController.cs`（计划逐字）+ 双 Profile（**全部参数 overrideState=true**）+ 双 Volume 场景接线 + 移除旧 MPP（组件两场景已清、脚本已删，guid 无残留引用）。
@@ -206,20 +240,10 @@
 
 **⚠️ 经验（面试可讲）**：3D Renderer 里的内置 CG 精灵 shader 换成 2D Renderer 后照常渲染（URP 兼容内置非光照 shader）；2D 光照差异化 = 材质(Lit) × 灯光(Global/Point) × 事件驱动(订阅维度)，缺一不可。
 
-### 后续任务预告
-- 任务 12（RoomConfigSO 扩展）→ 13/14/15（关卡 L1/L2/L3 Tilemap 重做）→ 16（性能数据 + README + 面试提纲）。关卡重做可直接使用任务 6-8 的斜坡/单向板/移动平台能力与任务 10 的 2D 光照。
-
-### 执行须知
-- **工作流**：AI 实现 → 附验收清单 → 用户在 Unity 手动验收 → 验收通过才 commit（禁止 AI 自行提交）。**例外**：用户可委托 AI 自主验收（如任务 9：MCP 进 Play + 截图像素对比），委托时 AI 验收通过即 commit。
-- commit 用中文规范（type 英文 + scope/description 中文）
-- **MCP（8092 桥）**：`set_active_instance` 选 `Mask Dimensions@5092658667197165`；execute_code 环境**帧冻结**（主线程桥接阻塞，Update/协程不随真实时间推进）——观测"随时间变化"用**手动 Camera.Render + 截图像素统计**；改资产必须在**编辑模式**（Play 中改不持久化）。
-
 ## 五、待办
 
-- [x] 任务 3（维度系统，`3e605bf`）
-- [x] 任务 4（玩家接入 KinematicBody，`912d704`）
-- [x] 任务 5（手感回归，`6f0cff3`）
-- [x] 任务 1~11（含任务 6-8 物理增量、9-11 渲染线）全部验收
-- [ ] 任务 12~16（关卡重做 + 收尾）按新顺序执行
-- [ ] 每完成一任务更新本文件和 `.superpowers/sdd/.../progress.md`
+- [x] 任务 1~11 全部验收（物理线 + 渲染线）
+- [ ] 任务 12~16：已实现，**待用户 Unity 验收**（验收清单见 `Docs/tests/04-levels-test.md` + 交付说明）
+- [ ] 验收通过后按模块 commit（levels 代码 / 关卡场景+资产 / docs 三个提交为宜）
+- [ ] 用户 Profiler 实测性能数据 → 回填 README 表格 → 决定对象池是否重新升级为卖点（D11 条件）
 - [ ] 全 16 任务完成后：最终代码审查 + finishing-a-development-branch

@@ -371,10 +371,11 @@ public class PlayerController : MonoBehaviour
             }
         }
 
-        // 理智流逝机制
+        // 理智流逝机制（倍率读当前房间 RoomConfigSO.sanityDrainMultiplier，L3 压力用；无 RoomManager 时兜底 1）
         if (WorldState.Instance.IsMaskActive)
         {
-            currentSanity -= config.activeSanityCostRate * Time.deltaTime;
+            float drainMultiplier = RoomManager.Instance != null ? RoomManager.Instance.CurrentSanityMultiplier : 1f;
+            currentSanity -= config.activeSanityCostRate * Time.deltaTime * drainMultiplier;
 
             // 当理智耗尽，强制弹回表世界
             if (currentSanity <= 0)
@@ -476,6 +477,22 @@ public class PlayerController : MonoBehaviour
 
         // 切回 Idle 状态
         TransitionTo(PlayerStateId.Idle);
+    }
+
+    /// <summary>
+    /// 房间维度强制（任务 12：RoomConfigSO.dimensionRequirement）。RoomManager 在 ResetForNewRoom 之后调用。
+    /// 0=不限制；1=必须表世界（重置后本就是表世界，等值静默无广播）；2=必须里世界（进入即戴上）。
+    /// 入口放玩家而非 RoomManager：自动切换不走手动切换协程，脸上的纸娃娃面具需在此同步。
+    /// </summary>
+    public void EnforceRoomDimension(int requirement)
+    {
+        if (requirement == 1)
+            WorldState.Instance.SetWorld(false);
+        else if (requirement == 2)
+            WorldState.Instance.SetWorld(true);
+
+        if (faceMaskObject != null)
+            faceMaskObject.SetActive(WorldState.Instance.IsMaskActive);
     }
 
     /// <summary>

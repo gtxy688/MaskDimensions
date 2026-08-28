@@ -10,10 +10,12 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 8fccc4aa095af1c47b34ca0bb5c72341, type: 3}
-  m_Name: Room_Parkour
+  m_Name: Room_L2_Teach
   m_EditorClassIdentifier: 
-  roomName: "\u7B2C\u4E09\u5173\uFF1A\u770B\u6E05\u695A\u518D\u8D70"
-  description: "\"\u8868\u4E16\u754C\u65E0\u8DEF\uFF0C\u4F9D\u9760\u9884\u89C8\u89C4\u5212\u91CC\u4E16\u754C\u8DEF\u7EBF\""
-  bulletStats: {fileID: 11400000, guid: 7f2d073f8bf0a0a4da5b5bc433076f6b, type: 2}
-  fireInterval: 1
+  roomName: "L2\xB7\u659C\u5761\u6CD5\u5219\xB7\u6559\u5B66"
+  description: "45\xB0 \u5761 + \u79FB\u52A8\u5E73\u53F0"
+  bulletStats: {fileID: 0}
+  fireInterval: 1.2
   bgmOverride: {fileID: 0}
+  dimensionRequirement: 0
+  sanityDrainMultiplier: 1

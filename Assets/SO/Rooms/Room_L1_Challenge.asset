@@ -10,10 +10,13 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 8fccc4aa095af1c47b34ca0bb5c72341, type: 3}
-  m_Name: Room_Tutorial
+  m_Name: Room_L1_Challenge
   m_EditorClassIdentifier: 
-  roomName: "\u7B2C\u4E00\u5173:\u65B0\u624B\u6559\u7A0B"
-  description: "\"\u5229\u7528\u9762\u5177\u7A7F\u8D8A\u4E24\u4E2A\u4E16\u754C\u62B5\u8FBE\u51FA\u53E3\""
-  bulletStats: {fileID: 11400000, guid: 7f2d073f8bf0a0a4da5b5bc433076f6b, type: 2}
-  fireInterval: 1
+  roomName: "L1\xB7\u6311\u6218"
+  description: "\u5C16\u523A\u573A\u4E0A\u4E09\u5C9B\u8FDE\u7EED\u5207\u6362\uFF08\u7406\u667A
+    1.5 \u500D\uFF09"
+  bulletStats: {fileID: 0}
+  fireInterval: 0
   bgmOverride: {fileID: 0}
+  dimensionRequirement: 0
+  sanityDrainMultiplier: 1.5
